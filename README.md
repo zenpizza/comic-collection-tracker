@@ -1,6 +1,10 @@
 # Comic Collection Tracker
 
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=flat&logo=vercel)](https://comic-collection-tracker.vercel.app)
+
 A comprehensive web app to track your comic book collection and find missing issues while browsing comic shops.
+
+🚀 **[Live Demo](https://comic-collection-tracker.vercel.app)**
 
 ## Features
 
