@@ -4,7 +4,7 @@
 
 A comprehensive web app to track your comic book collection and find missing issues while browsing comic shops.
 
-🚀 **[Live Demo](https://comic-collection-tracker.vercel.app)**
+🚀 **[Live Demo](https://comic-collection-tracker.vercel.app)** | 📦 Built with React + Vite + MongoDB
 
 ## Features
 
