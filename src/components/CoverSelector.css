@@ -1,0 +1,242 @@
+.cover-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.cover-selector-modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 800px;
+  max-height: 90vh;
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.cover-selector-header {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.cover-selector-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.cover-selector-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.cover-options {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  max-height: 400px;
+}
+
+.cover-option {
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.cover-option:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.cover-option.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.cover-image-container {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.cover-image-container img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #f3f4f6;
+}
+
+.quality-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: white;
+}
+
+.quality-high {
+  background: #10b981;
+}
+
+.quality-medium {
+  background: #f59e0b;
+}
+
+.quality-low {
+  background: #ef4444;
+}
+
+.cover-details {
+  font-size: 0.875rem;
+}
+
+.cover-provider {
+  margin-bottom: 4px;
+  color: #374151;
+}
+
+.cover-variant {
+  margin-bottom: 4px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.cover-dimensions {
+  margin-bottom: 4px;
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
+.cover-attribution {
+  color: #9ca3af;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.download-error {
+  margin: 16px 24px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cover-selector-actions {
+  padding: 20px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  background: #f9fafb;
+}
+
+.skip-btn {
+  padding: 10px 20px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.skip-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.skip-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select-btn {
+  padding: 10px 20px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.select-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.select-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.cover-selector-note {
+  padding: 12px 24px;
+  background: #f3f4f6;
+  border-top: 1px solid #e5e7eb;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .cover-selector-overlay {
+    padding: 10px;
+  }
+
+  .cover-selector-modal {
+    max-height: 95vh;
+  }
+
+  .cover-options {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .cover-image-container img {
+    height: 150px;
+  }
+
+  .cover-selector-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .skip-btn,
+  .select-btn {
+    width: 100%;
+  }
+}

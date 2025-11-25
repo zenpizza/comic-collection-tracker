@@ -1,0 +1,43 @@
+{
+  "comicId": 1760907541910,
+  "metadata": {
+    "source": "upload",
+    "provider": "comicvine",
+    "originalUrl": "https://comicvine.gamespot.com/a/uploads/original/0/40/311656-19660-123367-1-batman-and-the-outsi.jpg",
+    "attribution": "Cover image provided by Comic Vine",
+    "quality": "high",
+    "localVersion": "pwz2m5",
+    "lastModified": "2025-10-23T20:39:21.241Z",
+    "syncStatus": "pending"
+  },
+  "storedAt": "2025-10-23T20:42:22.048Z",
+  "sizes": {
+    "thumbnail": {
+      "filename": "1760907541910_thumbnail.jpg",
+      "size": 12593,
+      "dimensions": {
+        "width": 150,
+        "height": 225
+      },
+      "mimeType": "image/jpeg"
+    },
+    "medium": {
+      "filename": "1760907541910_medium.jpg",
+      "size": 37825,
+      "dimensions": {
+        "width": 300,
+        "height": 450
+      },
+      "mimeType": "image/jpeg"
+    },
+    "full": {
+      "filename": "1760907541910_full.jpg",
+      "size": 51397,
+      "dimensions": {
+        "width": 400,
+        "height": 624
+      },
+      "mimeType": "image/jpeg"
+    }
+  }
+}

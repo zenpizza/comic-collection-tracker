@@ -1,0 +1,357 @@
+/* Error Feedback Component Styles */
+
+.error-feedback {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin: 16px 0;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.error-feedback--high {
+  border-left: 4px solid #dc3545;
+  background: #fff5f5;
+}
+
+.error-feedback--medium {
+  border-left: 4px solid #ffc107;
+  background: #fffbf0;
+}
+
+.error-feedback--low {
+  border-left: 4px solid #17a2b8;
+  background: #f0f9ff;
+}
+
+.error-feedback__header {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  gap: 12px;
+}
+
+.error-feedback__icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.error-feedback__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.error-feedback__title {
+  font-weight: 600;
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.error-feedback__message {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.error-feedback__close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.error-feedback__close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #666;
+}
+
+.error-feedback__actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 16px 16px;
+  flex-wrap: wrap;
+}
+
+.error-feedback__action {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.error-feedback__action:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.error-feedback__action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-feedback__action--primary {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.error-feedback__action--primary:hover:not(:disabled) {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.error-feedback--high .error-feedback__action--primary {
+  background: #dc3545;
+  border-color: #dc3545;
+}
+
+.error-feedback--high .error-feedback__action--primary:hover:not(:disabled) {
+  background: #c82333;
+  border-color: #c82333;
+}
+
+.error-feedback--medium .error-feedback__action--primary {
+  background: #ffc107;
+  color: #212529;
+  border-color: #ffc107;
+}
+
+.error-feedback--medium .error-feedback__action--primary:hover:not(:disabled) {
+  background: #e0a800;
+  border-color: #e0a800;
+}
+
+.error-feedback__technical {
+  border-top: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.error-feedback__technical-toggle {
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.error-feedback__technical-toggle:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
+.error-feedback__technical-content {
+  padding: 0 16px 16px 16px;
+  font-size: 12px;
+  color: #666;
+}
+
+.error-feedback__technical-item {
+  margin-bottom: 8px;
+}
+
+.error-feedback__technical-item strong {
+  color: #333;
+  display: inline-block;
+  min-width: 80px;
+}
+
+.error-feedback__technical-item pre {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 8px;
+  margin-top: 4px;
+  font-size: 11px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.error-feedback__info {
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid #e0e0e0;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Animation for error appearance */
+.error-feedback {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .error-feedback {
+    margin: 12px 0;
+    border-radius: 6px;
+  }
+  
+  .error-feedback__header {
+    padding: 12px;
+  }
+  
+  .error-feedback__actions {
+    padding: 0 12px 12px 12px;
+    flex-direction: column;
+  }
+  
+  .error-feedback__action {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .error-feedback__technical-toggle {
+    padding: 10px 12px;
+  }
+  
+  .error-feedback__technical-content {
+    padding: 0 12px 12px 12px;
+  }
+  
+  .error-feedback__info {
+    padding: 10px 12px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .error-feedback {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .error-feedback--high {
+    background: #3d2a2a;
+  }
+  
+  .error-feedback--medium {
+    background: #3d3a2a;
+  }
+  
+  .error-feedback--low {
+    background: #2a3a3d;
+  }
+  
+  .error-feedback__title {
+    color: #f7fafc;
+  }
+  
+  .error-feedback__message {
+    color: #cbd5e0;
+  }
+  
+  .error-feedback__close {
+    color: #a0aec0;
+  }
+  
+  .error-feedback__close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+  }
+  
+  .error-feedback__action {
+    background: #4a5568;
+    border-color: #718096;
+    color: #e2e8f0;
+  }
+  
+  .error-feedback__action:hover {
+    background: #2d3748;
+    border-color: #a0aec0;
+  }
+  
+  .error-feedback__technical {
+    background: #1a202c;
+    border-color: #4a5568;
+  }
+  
+  .error-feedback__technical-toggle {
+    color: #a0aec0;
+  }
+  
+  .error-feedback__technical-toggle:hover {
+    background: #2d3748;
+    color: #e2e8f0;
+  }
+  
+  .error-feedback__technical-content {
+    color: #a0aec0;
+  }
+  
+  .error-feedback__technical-item strong {
+    color: #f7fafc;
+  }
+  
+  .error-feedback__technical-item pre {
+    background: #1a202c;
+    border-color: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .error-feedback__info {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: #4a5568;
+    color: #a0aec0;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .error-feedback {
+    border-width: 2px;
+  }
+  
+  .error-feedback__title {
+    font-weight: 700;
+  }
+  
+  .error-feedback__action {
+    border-width: 2px;
+    font-weight: 600;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .error-feedback {
+    animation: none;
+  }
+  
+  .error-feedback__close,
+  .error-feedback__action,
+  .error-feedback__technical-toggle {
+    transition: none;
+  }
+}
