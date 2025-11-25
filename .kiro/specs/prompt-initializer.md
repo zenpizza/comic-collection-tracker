@@ -53,7 +53,7 @@ List view and grid view for browsing collection
 - **ImageURLService is the standard** - All image URL resolution should go through this service
 - **No local MongoDB** - Use production Atlas instance for tests
 - **No testing framework** - Test scripts are in scripts/ directory
-- **No git yet** - Project doesn't use version control
+- **Git repository** - Connected to GitHub at https://github.com/zenpizza/comic-collection-tracker
 - **Database migration completed** - System uses individual document-per-comic architecture
 - **MongoDB ObjectId standard** - Uses MongoDB's recommended ObjectId for _id fields
 - **Cover linking via ObjectId** - cover_images.comicId stores ObjectId string to link to comics._id
