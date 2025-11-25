@@ -1,0 +1,43 @@
+{
+  "comicId": 1760907541909,
+  "metadata": {
+    "source": "upload",
+    "provider": "comicvine",
+    "originalUrl": "https://comicvine.gamespot.com/a/uploads/original/6/67663/7837204-03.jpg",
+    "attribution": "Cover image provided by Comic Vine",
+    "quality": "high",
+    "localVersion": "hcr0k5",
+    "lastModified": "2025-10-24T13:32:27.441Z",
+    "syncStatus": "pending"
+  },
+  "storedAt": "2025-10-24T13:32:57.588Z",
+  "sizes": {
+    "thumbnail": {
+      "filename": "1760907541909_thumbnail.jpg",
+      "size": 16971,
+      "dimensions": {
+        "width": 150,
+        "height": 225
+      },
+      "mimeType": "image/jpeg"
+    },
+    "medium": {
+      "filename": "1760907541909_medium.jpg",
+      "size": 56786,
+      "dimensions": {
+        "width": 300,
+        "height": 450
+      },
+      "mimeType": "image/jpeg"
+    },
+    "full": {
+      "filename": "1760907541909_full.jpg",
+      "size": 1218971,
+      "dimensions": {
+        "width": 1988,
+        "height": 3056
+      },
+      "mimeType": "image/jpeg"
+    }
+  }
+}

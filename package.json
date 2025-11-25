@@ -1,0 +1,43 @@
+{
+  "name": "comic-collection-tracker",
+  "version": "1.0.0",
+  "description": "Track your comic book collection and find missing issues",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server.js",
+    "start": "npm run build && npm run server",
+    "dev:full": "concurrently \"npm run dev\" \"npm run server\"",
+    "vercel-build": "npm run build",
+    "test:mongodb": "node scripts/test-mongodb.js",
+    "test:mongodb-simple": "node scripts/test-mongodb-simple.js",
+    "test:storage": "node scripts/test-storage-operations.js",
+    "test:api": "node scripts/test-api-endpoints.js",
+    "test:api-simple": "node scripts/test-api-simple.js",
+    "test:blob-cleanup": "node scripts/test-blob-cleanup.js",
+    "test:blob-integration": "node scripts/test-app-blob-cleanup.js",
+    "test:cover-replacement": "node scripts/test-cover-replacement.js",
+    "test:cover-replacement-comicvine": "node scripts/test-cover-replacement-comicvine.js"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "commander": "^11.1.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "mongodb": "^6.3.0",
+    "node-fetch": "^3.3.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "sharp": "^0.34.4"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "concurrently": "^8.2.2",
+    "vite": "^7.1.10"
+  }
+}

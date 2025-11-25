@@ -1,0 +1,306 @@
+/* CoverGallery component styles */
+.cover-gallery {
+  width: 100%;
+  height: 100%;
+}
+
+.cover-gallery__header {
+  margin-bottom: 1rem;
+  padding: 0 1rem;
+}
+
+.cover-gallery__header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.cover-gallery__scroll-container {
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.cover-gallery__virtual-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.cover-gallery__grid {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  position: absolute;
+  width: calc(100% - 2rem);
+  top: 0;
+  left: 0;
+}
+
+.cover-gallery__item {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  height: 264px; /* Fixed height for virtual scrolling */
+}
+
+.cover-gallery__item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.cover-gallery__cover {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e1e5e9;
+  height: 180px;
+}
+
+.cover-gallery__info {
+  flex: 1;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 0;
+}
+
+.cover-gallery__series {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cover-gallery__issue {
+  font-size: 0.85rem;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.cover-gallery__variant {
+  color: #e67e22;
+  font-weight: normal;
+}
+
+.cover-gallery__publisher {
+  font-size: 0.75rem;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cover-gallery__year {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.cover-gallery__actions {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.cover-gallery__item:hover .cover-gallery__actions {
+  opacity: 1;
+}
+
+.cover-gallery__action-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, transform 0.1s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.cover-gallery__action-btn:hover {
+  transform: scale(1.1);
+}
+
+.cover-gallery__edit-btn {
+  background: #007bff;
+  color: white;
+}
+
+.cover-gallery__edit-btn:hover {
+  background: #0056b3;
+}
+
+.cover-gallery__remove-btn {
+  background: #dc3545;
+  color: white;
+  font-size: 1.2rem;
+}
+
+.cover-gallery__remove-btn:hover {
+  background: #c82333;
+}
+
+/* Empty state */
+.cover-gallery__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #666;
+  min-height: 300px;
+}
+
+.cover-gallery__empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.cover-gallery__empty h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.cover-gallery__empty p {
+  margin: 0;
+  max-width: 400px;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+  .cover-gallery__grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .cover-gallery__grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+  
+  .cover-gallery__item {
+    height: 240px;
+  }
+  
+  .cover-gallery__cover {
+    height: 160px;
+    padding: 0.5rem;
+  }
+  
+  .cover-gallery__info {
+    padding: 0.5rem;
+  }
+  
+  .cover-gallery__series {
+    font-size: 0.8rem;
+  }
+  
+  .cover-gallery__issue {
+    font-size: 0.75rem;
+  }
+  
+  .cover-gallery__publisher,
+  .cover-gallery__year {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .cover-gallery__grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  
+  .cover-gallery__item {
+    height: 220px;
+  }
+  
+  .cover-gallery__cover {
+    height: 140px;
+    padding: 0.5rem;
+  }
+  
+  .cover-gallery__actions {
+    top: 0.25rem;
+    right: 0.25rem;
+  }
+  
+  .cover-gallery__action-btn {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+  
+  .cover-gallery__remove-btn {
+    font-size: 1rem;
+  }
+}
+
+/* Scrollbar styling */
+.cover-gallery__scroll-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cover-gallery__scroll-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.cover-gallery__scroll-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.cover-gallery__scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Focus states for accessibility */
+.cover-gallery__action-btn:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Animation for smooth loading */
+.cover-gallery__item {
+  animation: cover-gallery-fade-in 0.3s ease-out;
+}
+
+@keyframes cover-gallery-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

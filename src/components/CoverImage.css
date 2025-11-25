@@ -1,0 +1,215 @@
+/* CoverImage component styles */
+.cover-image {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border: 1px solid #e1e5e9;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.cover-image--clickable {
+  cursor: pointer;
+}
+
+.cover-image--clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.cover-image--clickable:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Size variants */
+.cover-image--thumbnail {
+  width: 60px;
+  height: 90px;
+  min-width: 60px;
+  min-height: 90px;
+}
+
+.cover-image--medium {
+  width: 120px;
+  height: 180px;
+  min-width: 120px;
+  min-height: 180px;
+}
+
+.cover-image--full {
+  width: 300px;
+  height: 450px;
+  min-width: 300px;
+  min-height: 450px;
+}
+
+/* Image element */
+.cover-image__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.cover-image__fallback {
+  opacity: 0.8;
+}
+
+/* Loading state */
+.cover-image__loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 249, 250, 0.9);
+  z-index: 1;
+}
+
+.cover-image__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e1e5e9;
+  border-top: 2px solid #667eea;
+  border-radius: 50%;
+  animation: cover-image-spin 1s linear infinite;
+}
+
+@keyframes cover-image-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Placeholder state */
+.cover-image__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  text-align: center;
+  padding: 0.5rem;
+  height: 100%;
+  width: 100%;
+}
+
+.cover-image__placeholder-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+  opacity: 0.6;
+}
+
+.cover-image__placeholder-text {
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Error state */
+.cover-image__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #dc3545;
+  text-align: center;
+  padding: 0.5rem;
+  height: 100%;
+  width: 100%;
+  background: #fff5f5;
+}
+
+.cover-image__error-icon {
+  font-size: 1.2rem;
+  margin-bottom: 0.25rem;
+  opacity: 0.8;
+}
+
+.cover-image__error-text {
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Size-specific adjustments */
+.cover-image--thumbnail .cover-image__placeholder-icon,
+.cover-image--thumbnail .cover-image__error-icon {
+  font-size: 1rem;
+}
+
+.cover-image--thumbnail .cover-image__placeholder-text,
+.cover-image--thumbnail .cover-image__error-text {
+  font-size: 0.6rem;
+}
+
+.cover-image--thumbnail .cover-image__spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.cover-image--medium .cover-image__placeholder-icon,
+.cover-image--medium .cover-image__error-icon {
+  font-size: 2rem;
+}
+
+.cover-image--medium .cover-image__placeholder-text,
+.cover-image--medium .cover-image__error-text {
+  font-size: 0.8rem;
+}
+
+.cover-image--full .cover-image__placeholder-icon,
+.cover-image--full .cover-image__error-icon {
+  font-size: 3rem;
+}
+
+.cover-image--full .cover-image__placeholder-text,
+.cover-image--full .cover-image__error-text {
+  font-size: 1rem;
+}
+
+.cover-image--full .cover-image__spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .cover-image--full {
+    width: 240px;
+    height: 360px;
+    min-width: 240px;
+    min-height: 360px;
+  }
+  
+  .cover-image--medium {
+    width: 100px;
+    height: 150px;
+    min-width: 100px;
+    min-height: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cover-image--full {
+    width: 200px;
+    height: 300px;
+    min-width: 200px;
+    min-height: 300px;
+  }
+  
+  .cover-image--thumbnail {
+    width: 50px;
+    height: 75px;
+    min-width: 50px;
+    min-height: 75px;
+  }
+}

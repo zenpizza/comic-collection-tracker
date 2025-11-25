@@ -1,0 +1,99 @@
+/* ViewModeToggle component styles */
+.view-mode-toggle {
+  display: flex;
+  background: #f8f9fa;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.view-mode-toggle__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  position: relative;
+}
+
+.view-mode-toggle__btn:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
+.view-mode-toggle__btn:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px #667eea;
+  z-index: 1;
+}
+
+.view-mode-toggle__btn--active {
+  background: #667eea;
+  color: white;
+  box-shadow: 0 1px 3px rgba(102, 126, 234, 0.3);
+}
+
+.view-mode-toggle__btn--active:hover {
+  background: #5a67d8;
+  color: white;
+}
+
+.view-mode-toggle__icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.view-mode-toggle__label {
+  white-space: nowrap;
+}
+
+/* Compact variant for smaller screens */
+@media (max-width: 768px) {
+  .view-mode-toggle__btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  .view-mode-toggle__icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .view-mode-toggle__label {
+    display: none;
+  }
+  
+  .view-mode-toggle__btn {
+    padding: 0.5rem;
+    gap: 0;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .view-mode-toggle {
+    border-width: 2px;
+  }
+  
+  .view-mode-toggle__btn--active {
+    background: #000;
+    color: #fff;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .view-mode-toggle__btn {
+    transition: none;
+  }
+}
