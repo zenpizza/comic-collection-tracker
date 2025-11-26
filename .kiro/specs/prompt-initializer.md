@@ -1,6 +1,6 @@
 # Project Summary
 
-This is a Comic Collection Tracker application with the following awesome key features:
+This is a Comic Collection Tracker application with the following awesome 2x key features:
 
 ## Architecture
 
