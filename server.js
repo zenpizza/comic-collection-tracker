@@ -1,3 +1,20 @@
+/**
+ * Local Development Server
+ * 
+ * This server is used for local development only (npm run dev:full).
+ * In production, Vercel uses serverless functions in the /api directory.
+ * 
+ * Provides:
+ * - API endpoint proxying during development
+ * - File-based storage for local testing (data/ folder)
+ * - Hot reload support with Vite
+ * 
+ * Production architecture:
+ * - Frontend: Vite build → Vercel static hosting
+ * - Backend: Serverless functions in /api
+ * - Database: MongoDB Atlas
+ */
+
 import 'dotenv/config'
 import express from 'express'
 import fs from 'fs/promises'

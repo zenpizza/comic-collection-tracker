@@ -45,19 +45,35 @@ npm run dev:full
 
 This will start:
 - Frontend dev server on http://localhost:3000
-- Backend API server on http://localhost:3001
+- Backend API server on http://localhost:3001 (local Express server)
+- Uses local file storage in `data/` folder for testing
+
+**Note**: The local Express server (`server.js`) is for development only. Production uses Vercel serverless functions.
 
 #### Production Mode
-Build and run the production version:
+Build and run the production version locally:
 ```bash
 npm run start
 ```
 
-#### Frontend Only (Limited Features)
-If you only want to run the frontend with localStorage:
+#### Frontend Only
+If you only want to run the frontend:
 ```bash
 npm run dev
 ```
+
+### Architecture
+
+**Local Development**:
+- Frontend: Vite dev server
+- Backend: Express server (`server.js`)
+- Storage: Local files (`data/` folder)
+
+**Production** ([comic-collection-tracker.vercel.app](https://comic-collection-tracker.vercel.app)):
+- Frontend: Vite build → Vercel static hosting
+- Backend: Serverless functions (`/api` directory)
+- Database: MongoDB Atlas
+- Images: MongoDB (base64 encoded)
 
 ## Usage
 
@@ -102,9 +118,15 @@ The "Data Manager" tab provides:
 
 ## Data Storage
 
-Your comic collection is stored in:
-- **Primary**: JSON files in the `data/` directory (persistent across browser sessions)
-- **Backup**: Browser localStorage (automatic fallback)
+**Production**: MongoDB Atlas (cloud database)
+- Comics stored as individual documents
+- Cover images stored as base64 encoded data
+- Three image sizes: thumbnail, medium, full
+
+**Local Development**: File-based storage
+- JSON files in the `data/` directory
+- Used only when running `npm run dev:full`
+- Not used in production
 
 ## File Structure
 
