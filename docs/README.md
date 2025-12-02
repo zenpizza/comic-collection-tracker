@@ -1,86 +1,86 @@
 # Comic Collection Tracker Documentation
 
+## Table of Contents
+
+- [Setup](#setup)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Cover Search System](#cover-search-system)
+- [Migrations](#migrations)
+- [Bug Fixes & Improvements](#bug-fixes--improvements)
+- [Project History](#project-history)
+- [Documentation Organization](#documentation-organization)
+
+## Setup
+
+- [setup/](./setup/) - Project setup and original requirements
+  - [clone-app-prompt.md](./setup/clone-app-prompt.md) - Original project vision and requirements
+
+## Architecture
+
+- [ARCHITECTURE.md](./architecture/ARCHITECTURE.md) - System architecture and design decisions
+
+## Features
+
+- [COMIC_COVERS_COMPLETE.md](./features/COMIC_COVERS_COMPLETE.md) - Complete cover management system
+- [FEATURE_COMIC_DETAIL_VIEW.md](./features/FEATURE_COMIC_DETAIL_VIEW.md) - Comic detail view feature documentation
+
 ## Cover Search System
 
-The cover search system handles finding and downloading comic book cover images from external APIs.
+- [cover-search/](./cover-search/) - Complete cover search system documentation
+  - [SYSTEM.md](./cover-search/SYSTEM.md) - Complete system documentation and architecture
+  - [QUICK_REFERENCE.md](./cover-search/QUICK_REFERENCE.md) - Quick reference with code examples
+  - [CHECKLIST.md](./cover-search/CHECKLIST.md) - Integration checklist
+  - [FIXES_2024-11-24.md](./cover-search/FIXES_2024-11-24.md) - Recent fixes and improvements
 
-### Documentation Files
+## Migrations
 
-1. **[COVER_SEARCH_SYSTEM.md](./COVER_SEARCH_SYSTEM.md)** - Complete system documentation
-   - Architecture overview
-   - Cover search flow
-   - Integration points
-   - API reference
-   - Troubleshooting guide
+- [MONGODB_ID_MIGRATION_GUIDE.md](./migrations/MONGODB_ID_MIGRATION_GUIDE.md) - MongoDB ObjectId migration guide
+- [OBJECTID_MIGRATION_COMPLETE.md](./migrations/OBJECTID_MIGRATION_COMPLETE.md) - ObjectId migration completion report
+- [DATABASE_MIGRATION_CLEANUP.md](./migrations/DATABASE_MIGRATION_CLEANUP.md) - Database cleanup after migration
 
-2. **[COVER_SEARCH_QUICK_REFERENCE.md](./COVER_SEARCH_QUICK_REFERENCE.md)** - Quick reference guide
-   - Code examples
-   - Common patterns
-   - Debugging commands
-   - Common mistakes to avoid
+## Bug Fixes & Improvements
 
-3. **[COVER_SEARCH_CHECKLIST.md](./COVER_SEARCH_CHECKLIST.md)** - Integration checklist
-   - Implementation checklist
-   - Code review checklist
-   - Testing checklist
-   - Deployment checklist
+- [COVER_REPLACEMENT_FIX.md](./fixes/COVER_REPLACEMENT_FIX.md) - Cover replacement functionality fixes
+- [COVER_SEARCH_FIX.md](./fixes/COVER_SEARCH_FIX.md) - Cover search improvements
+- [COVER_SELECTION_DRY_ANALYSIS.md](./fixes/COVER_SELECTION_DRY_ANALYSIS.md) - DRY principle analysis for cover selection
+- [COVER_UPDATE_SERVICE.md](./fixes/COVER_UPDATE_SERVICE.md) - Cover update service documentation
+- [COVER_UPLOAD_FIX.md](./fixes/COVER_UPLOAD_FIX.md) - Cover upload system improvements
+- [COVERURL_REMOVAL_COMPLETE.md](./fixes/COVERURL_REMOVAL_COMPLETE.md) - CoverUrl field removal
 
-4. **[COVER_SEARCH_FIXES_2024-11-24.md](./COVER_SEARCH_FIXES_2024-11-24.md)** - Recent fixes
-   - Issues fixed
-   - Files changed
-   - Examples
-   - Testing results
+## Project History
 
-## Quick Start
+- [history/](./history/) - Historical records of cleanups, refactors, and deployments
+  - [cleanups/](./history/cleanups/) - Code cleanup operations
+  - [refactors/](./history/refactors/) - Refactoring work
+  - [deployments/](./history/deployments/) - Deployment records
 
-### Adding Cover Search to a Component
+## Documentation Organization
 
-```javascript
-import { parseComicIssueForSearch } from '../utils/issueParser'
-import coverAPIService from '../utils/coverAPIService'
+This project uses two documentation systems:
 
-// Parse issue number
-const { series, issue } = parseComicIssueForSearch(comic)
+### `/docs` - Completed Documentation
+Historical records, completed features, bug fixes, and architecture decisions. This is where you'll find:
+- Implementation documentation
+- Post-mortem reports
+- Architecture decisions
+- Migration guides
 
-// Search for covers
-const results = await coverAPIService.searchCovers(series, issue, publisher, year)
+### `/.kiro/specs` - Active Specifications
+Living documents for feature development using Kiro's spec system. Contains:
+- [prompt-initializer.md](../.kiro/specs/prompt-initializer.md) - Project context and overview
+- [comic-covers/](../.kiro/specs/comic-covers/) - Active cover search feature spec (requirements, design, tasks)
+- Migration specs - Historical specs for completed migrations
 
-// Download and store
-const blob = await coverAPIService.downloadCover(coverUrl, comicId)
-const file = new File([blob], `cover-${comicId}.jpg`, { type: blob.type || 'image/jpeg' })
-await imageStorageManager.processAndStoreImage(comicId, file, metadata)
-```
+The relationship: Specs in `/.kiro/specs` drive development, then get documented in `/docs` once complete.
 
-### Key Concepts
+## Quick Links
 
-1. **Always parse issue numbers** before searching (handles Annuals, Specials, etc.)
-2. **Fallback searches** automatically try variations if no results found
-3. **Convert Blob to File** before storing downloaded covers
-4. **Don't retry** on "No covers found" errors
+### For Developers
+- [Setup Guide](./setup/clone-app-prompt.md) - Original project requirements
+- [Architecture](./architecture/ARCHITECTURE.md) - System design
+- [Cover Search Quick Reference](./cover-search/QUICK_REFERENCE.md) - Code examples
 
-## Current Integration Points
-
-- ✅ **ComicDetailView** - Individual cover replacement
-- ✅ **ComicForm** - Cover search when adding comics
-- ✅ **BulkCoverManager** - Bulk cover operations
-
-## Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| Covers not found for annuals | Verify parser is being used |
-| Retry loop on failures | Check error has `noRetry` flag |
-| Storage fails after download | Convert Blob to File first |
-| Cache issues | Run `coverAPIService.clearCache()` |
-
-## Related Documentation
-
-- [Prompt Initializer](../.kiro/specs/prompt-initializer.md) - Project overview
-- [Cover Search Fix Spec](../.kiro/specs/comic-covers/COVER_SEARCH_FIX_2025-11-20.md) - Original spec
-
-## Need Help?
-
-1. Start with [COVER_SEARCH_QUICK_REFERENCE.md](./COVER_SEARCH_QUICK_REFERENCE.md)
-2. Check [COVER_SEARCH_SYSTEM.md](./COVER_SEARCH_SYSTEM.md) for details
-3. Use [COVER_SEARCH_CHECKLIST.md](./COVER_SEARCH_CHECKLIST.md) when implementing
-4. Review [COVER_SEARCH_FIXES_2024-11-24.md](./COVER_SEARCH_FIXES_2024-11-24.md) for recent changes
+### For Kiro AI
+- [Prompt Initializer](../.kiro/specs/prompt-initializer.md) - Project context
+- [Archived Specs](../.kiro/specs/archive/) - Completed specifications
