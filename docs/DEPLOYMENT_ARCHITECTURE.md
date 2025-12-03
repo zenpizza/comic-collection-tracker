@@ -177,7 +177,7 @@ console.log(env.mongoUri);      // Auto-configured
 
 ## Storage Management
 
-### Current Usage (Dec 2024)
+### Current Usage (Dec 2025)
 
 - **Production**: 330 MB (241 comics, 246 covers)
 - **Preview**: ~0 MB (empty, test data only)
