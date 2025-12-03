@@ -13,7 +13,9 @@
 
 ## Setup
 
-- [setup/](./setup/) - Project setup and original requirements
+- [setup/](./setup/) - Project setup and development guides
+  - [DEVELOPMENT.md](./setup/DEVELOPMENT.md) - Quick start guide for local development
+  - [QUICK_TEST.md](./setup/QUICK_TEST.md) - 5-minute test workflow
   - [clone-app-prompt.md](./setup/clone-app-prompt.md) - Original project vision and requirements
 
 ## Architecture
@@ -77,7 +79,10 @@ The relationship: Specs in `/.kiro/specs` drive development, then get documented
 ## Quick Links
 
 ### For Developers
-- [Setup Guide](./setup/clone-app-prompt.md) - Original project requirements
+- [Development Guide](./setup/DEVELOPMENT.md) - Quick start for local development
+- [Quick Test](./setup/QUICK_TEST.md) - 5-minute test workflow
+- [Local Development](./LOCAL_DEVELOPMENT.md) - Complete Docker setup guide
+- [Deployment Architecture](./DEPLOYMENT_ARCHITECTURE.md) - Environment overview
 - [Architecture](./architecture/ARCHITECTURE.md) - System design
 - [Cover Search Quick Reference](./cover-search/QUICK_REFERENCE.md) - Code examples
 

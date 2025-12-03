@@ -3,7 +3,9 @@ import { compareSeriesNames } from './sortUtils.js'
 
 class ComicDataStore {
   constructor() {
-    this.isProduction = window.location.hostname !== 'localhost'
+    // Always use API in development (local backend on port 3001)
+    // In production, API is on same domain via Vercel
+    this.isProduction = true // Always use backend API
   }
 
   // Load comics from storage

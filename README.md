@@ -19,61 +19,60 @@ A comprehensive web app to track your comic book collection and find missing iss
 
 ## Setup & Installation
 
-### Prerequisites
-- Node.js (v16 or higher)
-- npm
+### Quick Start
 
-### Installation
-
-1. Install dependencies:
 ```bash
+# Install dependencies
 npm install
-```
 
-2. Install additional backend dependencies:
-```bash
-npm install express concurrently
-```
+# Start local MongoDB
+npm run dev:db
 
-### Running the App
-
-#### Development Mode (Recommended)
-Run both frontend and backend simultaneously:
-```bash
+# Start development
 npm run dev:full
 ```
 
-This will start:
-- Frontend dev server on http://localhost:3000
-- Backend API server on http://localhost:3001 (local Express server)
-- Uses local file storage in `data/` folder for testing
+Access the app at http://localhost:5173
 
-**Note**: The local Express server (`server.js`) is for development only. Production uses Vercel serverless functions.
+### Prerequisites
+- Node.js 18+
+- Docker Desktop (for local MongoDB)
+- VPN disabled (ProtonVPN blocks MongoDB connections)
 
-#### Production Mode
-Build and run the production version locally:
-```bash
-npm run start
-```
+### Detailed Setup
 
-#### Frontend Only
-If you only want to run the frontend:
-```bash
-npm run dev
-```
+See **[DEVELOPMENT.md](DEVELOPMENT.md)** for complete setup guide.
+
+### Documentation
+
+- 📖 **[Development Guide](docs/setup/DEVELOPMENT.md)** - Quick start for developers
+- 🏗️ **[Deployment Architecture](docs/DEPLOYMENT_ARCHITECTURE.md)** - Overview of all environments
+- 🐳 **[Local Development](docs/LOCAL_DEVELOPMENT.md)** - Docker MongoDB setup
+- ☁️ **[Vercel Environments](docs/VERCEL_ENVIRONMENTS.md)** - Preview & production setup
+- ⚙️ **[Vercel Setup Guide](docs/VERCEL_SETUP_GUIDE.md)** - Step-by-step configuration
 
 ### Architecture
 
-**Local Development**:
-- Frontend: Vite dev server
-- Backend: Express server (`server.js`)
-- Storage: Local files (`data/` folder)
+The app supports three deployment environments:
 
-**Production** ([comic-collection-tracker.vercel.app](https://comic-collection-tracker.vercel.app)):
-- Frontend: Vite build → Vercel static hosting
-- Backend: Serverless functions (`/api` directory)
-- Database: MongoDB Atlas
-- Images: MongoDB (base64 encoded)
+**🟡 Local Development**:
+- Frontend: Vite dev server (port 5173)
+- Backend: Express server (port 3000)
+- Database: Docker MongoDB (localhost:27017)
+- Purpose: Fast iteration, offline development
+
+**🟣 Preview** (Vercel):
+- Automatic deployments for PRs/branches
+- Database: MongoDB Atlas (`comic-collection-preview`)
+- Purpose: Testing before production
+
+**🔴 Production** ([comic-collection-tracker.vercel.app](https://comic-collection-tracker.vercel.app)):
+- Frontend: Vercel static hosting
+- Backend: Vercel serverless functions
+- Database: MongoDB Atlas (`comic-collection`)
+- Images: MongoDB (base64 encoded, 3 sizes)
+
+See [Deployment Architecture](docs/DEPLOYMENT_ARCHITECTURE.md) for details.
 
 ## Usage
 
