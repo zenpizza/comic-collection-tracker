@@ -3,6 +3,7 @@
  */
 
 import { MongoClient, ObjectId } from 'mongodb'
+import { getMongoDBUri, getDatabaseName } from './config.js'
 
 let client
 let db
@@ -16,9 +17,13 @@ async function connectToDatabase() {
   }
 
   try {
-    client = new MongoClient(process.env.MONGODB_URI)
+    const uri = getMongoDBUri()
+    const dbName = getDatabaseName()
+    
+    client = new MongoClient(uri)
     await client.connect()
-    db = client.db('comic-collection')
+    db = client.db(dbName)
+    
     return db
   } catch (error) {
     console.error('MongoDB connection error:', error)

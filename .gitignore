@@ -7,6 +7,8 @@ dist/
 # Environment variables
 .env
 .env.local
+.env.development
+.env.production
 .env.production
 .env.development
 .env*.local
@@ -31,3 +33,6 @@ yarn-error.log*
 # Local development data
 data/
 !data/.gitkeep
+
+# Docker
+docker-compose.override.yml
