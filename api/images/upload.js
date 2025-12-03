@@ -9,6 +9,7 @@ import Busboy from 'busboy'
 import sharp from 'sharp'
 import { MongoClient, ObjectId } from 'mongodb'
 import { storeCoverImages } from '../db-image-storage.js'
+import { getMongoDBUri, getDatabaseName } from '../config.js'
 
 let client
 let db
@@ -19,9 +20,9 @@ async function connectToDatabase() {
   }
 
   try {
-    client = new MongoClient(process.env.MONGODB_URI)
+    client = new MongoClient(getMongoDBUri())
     await client.connect()
-    db = client.db('comic-collection')
+    db = client.db(getDatabaseName())
     return db
   } catch (error) {
     console.error('MongoDB connection error:', error)
