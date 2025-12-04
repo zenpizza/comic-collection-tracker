@@ -49,21 +49,20 @@ export default async function handler(req, res) {
 
     console.log('Downloading cover image:', url)
 
-    // Download the image with browser-like headers
-    const response = await fetch(url, {
+    // Try direct download first
+    let response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://comicvine.gamespot.com/',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Sec-Fetch-Dest': 'image',
-        'Sec-Fetch-Mode': 'no-cors',
-        'Sec-Fetch-Site': 'cross-site'
+        'User-Agent': 'Comic Collection Tracker/1.0',
+        'Referer': 'https://comicvine.gamespot.com/'
       }
     })
+
+    // If direct download fails with 403, try using image proxy service
+    if (response.status === 403) {
+      console.log('Direct download blocked, trying image proxy...')
+      const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}`
+      response = await fetch(proxyUrl)
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
