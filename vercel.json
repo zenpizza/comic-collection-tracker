@@ -10,6 +10,9 @@
     },
     "api/cover-search.js": {
       "maxDuration": 30
+    },
+    "api/download.js": {
+      "maxDuration": 30
     }
   },
   "routes": [
