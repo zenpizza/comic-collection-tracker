@@ -9,6 +9,7 @@ import ErrorHandlingTest from './components/ErrorHandlingTest'
 import { ErrorFeedbackProvider } from './components/ErrorFeedback'
 import dataStore from './utils/dataStore'
 import coverErrorHandler from './utils/errorHandling'
+import coverUpdateService from './utils/coverUpdateService'
 import { getSortedUniqueSeriesNames } from './utils/sortUtils'
 import './App.css'
 
@@ -89,16 +90,44 @@ function App() {
       }
     }
 
+    // Extract coverData before creating comic (it needs to be uploaded separately)
+    const { coverData, ...comicWithoutCover } = comic
+
     // Don't generate ID - let MongoDB create ObjectId
     const newComic = {
-      ...comic,
+      ...comicWithoutCover,
       dateAdded: new Date().toISOString()
     }
     
     try {
       setSaveStatus('saving')
       // Save to database first (backend will generate ObjectId)
-      await dataStore.addComic(newComic)
+      const savedComic = await dataStore.addComic(newComic)
+      
+      // If we have cover data and a valid comic ID, upload the cover
+      if (coverData && savedComic?.id) {
+        console.log('Uploading cover for new comic:', savedComic.id)
+        try {
+          // Get the image blob from coverData
+          const imageBlob = coverData.originalFile || coverData.processed?.full
+          if (imageBlob) {
+            await coverUpdateService.addCover(savedComic.id, imageBlob, {
+              source: coverData.metadata?.source || 'upload',
+              provider: coverData.metadata?.provider,
+              originalUrl: coverData.metadata?.originalUrl,
+              attribution: coverData.metadata?.attribution,
+              quality: coverData.metadata?.quality,
+              dimensions: coverData.metadata?.dimensions
+            })
+            console.log('Cover uploaded successfully for comic:', savedComic.id)
+          }
+        } catch (coverError) {
+          console.error('Failed to upload cover:', coverError)
+          // Don't fail the whole operation if cover upload fails
+          // The comic is already saved, user can add cover later
+        }
+      }
+      
       // Then refresh from database to get the current state
       await loadComicsFromStore()
       setSaveStatus('saved')
