@@ -49,22 +49,20 @@ export default async function handler(req, res) {
 
     console.log('Downloading cover image:', url)
 
-    // Try direct download first
-    let response = await fetch(url, {
+    // Download the image
+    const response = await fetch(url, {
       headers: {
         'User-Agent': 'Comic Collection Tracker/1.0',
         'Referer': 'https://comicvine.gamespot.com/'
       }
     })
 
-    // If direct download fails with 403, try using image proxy service
-    if (response.status === 403) {
-      console.log('Direct download blocked, trying image proxy...')
-      const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}`
-      response = await fetch(proxyUrl)
-    }
-
     if (!response.ok) {
+      // Check if running locally and blocked by ComicVine
+      const isLocal = process.env.VERCEL !== '1'
+      if (response.status === 403 && isLocal) {
+        throw new Error('ComicVine blocks requests from your IP. Please test cover downloads on Vercel preview deployments, or use a VPN.')
+      }
       throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
     }
 
