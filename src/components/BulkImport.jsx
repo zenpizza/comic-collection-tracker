@@ -56,7 +56,7 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
     }
 
     // Try hash format: "Series #Number"
-    const hashMatch = line.match(/^(.+?)\s*#(\d+(?:\.\d+)?)\s*(.*)$/)
+    const hashMatch = line.match(/^(.+?)\s*#(\d+(?:\.\d+)?)(?:\s|$)(.*)$/)
     if (hashMatch) {
       const [, series, issueNumber, rest] = hashMatch
       
