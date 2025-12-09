@@ -527,15 +527,6 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                     </div>
                   )}
 
-                  {comic.dateAdded && (
-                    <div className="detail-item">
-                      <span className="detail-label">Date Added:</span>
-                      <span className="detail-value">
-                        {new Date(comic.dateAdded).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
-
                   {comic.notes && (
                     <div className="detail-item detail-item-full">
                       <span className="detail-label">Notes:</span>
