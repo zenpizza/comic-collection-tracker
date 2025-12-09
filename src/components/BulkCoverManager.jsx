@@ -286,6 +286,12 @@ function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose, initialFi
       )
 
       // Use centralized cover update service
+      console.log('[BulkCoverManager] Selected cover metadata:', {
+        volumeId: selectedCover.metadata?.volumeId,
+        volumeName: selectedCover.metadata?.volumeName,
+        fullMetadata: selectedCover.metadata
+      })
+      
       const result = await coverUpdateService.addCover(
         comic.id,
         imageBlob,
