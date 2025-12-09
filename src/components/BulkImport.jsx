@@ -34,11 +34,9 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
   }
 
   const parseComicLine = (line) => {
-    // Format examples:
-    // "Amazing Spider-Man #1"
-    // "Amazing Spider-Man #1 (Marvel, 2023)"
-    // "Amazing Spider-Man #1 - Variant A (Marvel, 2023)"
-    // "Amazing Spider-Man, 1, Marvel, 2023"
+    // Supported formats:
+    // 1. Comma-separated: "Amazing Spider-Man, 1, Marvel, 2023"
+    // 2. Hash format: "Amazing Spider-Man #1"
 
     // Try comma-separated format first
     if (line.includes(',')) {
@@ -56,48 +54,18 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
     }
 
     // Try hash format: "Series #Number"
-    const hashMatch = line.match(/^(.+?)\s*#(\d+(?:\.\d+)?)\s*(.*)$/)
-    if (hashMatch) {
-      const [, series, issueNumber, rest] = hashMatch
+    const hashIndex = line.indexOf('#')
+    if (hashIndex !== -1) {
+      const series = line.substring(0, hashIndex).trim()
+      const issueNumber = line.substring(hashIndex + 1).trim()
       
-      // Parse additional info from parentheses
-      const parenMatch = rest.match(/\(([^)]+)\)/)
-      let publisher = ''
-      let year = ''
-      let variant = ''
-      
-      if (parenMatch) {
-        const parenContent = parenMatch[1]
-        const parts = parenContent.split(',').map(p => p.trim())
-        publisher = parts[0] || ''
-        year = parts[1] || ''
-      }
-      
-      // Check for variant info before parentheses
-      const beforeParen = rest.replace(/\([^)]*\)/, '').trim()
-      if (beforeParen && beforeParen.includes('-')) {
-        variant = beforeParen.replace('-', '').trim()
-      }
-
       return {
-        series: series.trim(),
+        series: series,
         issueNumber: issueNumber,
-        publisher,
-        year,
-        variant,
-        notes: ''
-      }
-    }
-
-    // Fallback: treat the whole line as a series name with issue #1
-    if (line.length > 0) {
-      return {
-        series: line,
-        issueNumber: '1',
         publisher: '',
         year: '',
         variant: '',
-        notes: 'Auto-imported'
+        notes: ''
       }
     }
 
@@ -261,8 +229,6 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
                 <p><strong>Supported formats:</strong></p>
                 <ul>
                   <li>Amazing Spider-Man #1</li>
-                  <li>Amazing Spider-Man #1 (Marvel, 2023)</li>
-                  <li>Amazing Spider-Man #1 - Variant A (Marvel, 2023)</li>
                   <li>Amazing Spider-Man, 1, Marvel, 2023</li>
                 </ul>
               </div>
@@ -270,7 +236,7 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
                 id="text-input"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Amazing Spider-Man #1&#10;X-Men #1 (Marvel, 2023)&#10;Batman #1 - Variant A (DC, 2023)"
+                placeholder="Amazing Spider-Man #1&#10;X-Men, 1, Marvel, 2023&#10;Batman, 1, DC, 2016"
                 rows="10"
                 className="text-input"
               />
