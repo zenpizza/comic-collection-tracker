@@ -16,9 +16,19 @@ December 8, 2024
    - Pre-filtered to show only the newly imported comics
    - Visual indicator shows "📦 Showing X newly imported comics"
    - User can immediately start fetching covers
+   - After closing BulkCoverManager, toast notification appears
 4. If user clicks "Cancel":
-   - Stays on Bulk Import screen
-   - Can fetch covers later via Data Manager
+   - Toast notification appears immediately
+5. Toast notification:
+   - Shows "✓ Successfully imported X comics!"
+   - Includes "View Collection →" button
+   - Auto-dismisses after 8 seconds
+   - Can be manually closed
+6. Clicking "View Collection →":
+   - Switches to Collection tab
+   - Shows only newly imported comics with banner
+   - Banner: "📦 Showing X newly imported comics" with "View All Comics" button
+7. User can clear filter anytime to see full collection
 
 ## Technical Changes
 
@@ -46,6 +56,23 @@ December 8, 2024
 
 #### `src/components/BulkCoverManager.css`
 - Added `.filter-notice` style for visual indicator
+
+#### `src/components/Toast.jsx` (NEW)
+- Reusable toast notification component
+- Supports message, action button, and auto-dismiss
+- Slide-up animation
+
+#### `src/components/Toast.css` (NEW)
+- Toast styling with fixed positioning
+- Action button and close button styles
+
+#### `src/components/CollectionView.jsx`
+- Added `recentlyImportedIds` and `onClearRecentFilter` props
+- Filter logic includes recently imported comics
+- Banner displays when filter is active
+
+#### `src/components/CollectionView.css`
+- Added `.recently-imported-banner` and `.clear-filter-btn` styles
 
 ## Benefits
 

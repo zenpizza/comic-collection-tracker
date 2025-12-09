@@ -6,6 +6,7 @@ import MissingIssues from './components/MissingIssues'
 import DataManager from './components/DataManager'
 import DuplicateManager from './components/DuplicateManager'
 import BulkCoverManager from './components/BulkCoverManager'
+import Toast from './components/Toast'
 import ErrorHandlingTest from './components/ErrorHandlingTest'
 import { ErrorFeedbackProvider } from './components/ErrorFeedback'
 import dataStore from './utils/dataStore'
@@ -53,6 +54,10 @@ function App() {
   const [saveStatus, setSaveStatus] = useState('saved') // 'saving', 'saved', 'error'
   const [showBulkCoverManager, setShowBulkCoverManager] = useState(false)
   const [bulkCoverFilterIds, setBulkCoverFilterIds] = useState(null)
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [recentlyImportedIds, setRecentlyImportedIds] = useState(null)
+  const [recentlyImportedCount, setRecentlyImportedCount] = useState(0)
 
   // Load comics from persistent storage on mount
   useEffect(() => {
@@ -200,6 +205,10 @@ function App() {
       const newlyAddedComics = sortedByDate.slice(0, uniqueComics.length)
       const newComicIds = newlyAddedComics.map(c => c.id)
       
+      // Store the imported IDs for later display
+      setRecentlyImportedIds(newComicIds)
+      setRecentlyImportedCount(uniqueComics.length)
+      
       // Show success message and prompt for cover fetch
       const fetchCovers = window.confirm(
         `Successfully imported ${uniqueComics.length} comics!\n\n` +
@@ -209,6 +218,10 @@ function App() {
       if (fetchCovers) {
         setBulkCoverFilterIds(newComicIds)
         setShowBulkCoverManager(true)
+      } else {
+        // If user skips cover fetch, show toast immediately
+        setToastMessage(`✓ Successfully imported ${uniqueComics.length} comics!`)
+        setShowToast(true)
       }
     } catch (error) {
       console.error('Error adding multiple comics:', error)
@@ -277,6 +290,22 @@ function App() {
   const handleCloseBulkCoverManager = () => {
     setShowBulkCoverManager(false)
     setBulkCoverFilterIds(null)
+    
+    // Show toast if we have recently imported comics
+    if (recentlyImportedIds && recentlyImportedIds.length > 0) {
+      setToastMessage(`✓ Successfully imported ${recentlyImportedCount} comics!`)
+      setShowToast(true)
+    }
+  }
+
+  const handleViewRecentlyImported = () => {
+    setShowToast(false)
+    setActiveTab('collection')
+  }
+
+  const handleClearRecentFilter = () => {
+    setRecentlyImportedIds(null)
+    setRecentlyImportedCount(0)
   }
 
   return (
@@ -340,7 +369,13 @@ function App() {
 
       <main className="app-main">
         {activeTab === 'collection' && (
-          <CollectionView comics={comics} onRemove={removeComic} onEdit={editComic} />
+          <CollectionView 
+            comics={comics} 
+            onRemove={removeComic} 
+            onEdit={editComic}
+            recentlyImportedIds={recentlyImportedIds}
+            onClearRecentFilter={handleClearRecentFilter}
+          />
         )}
         {activeTab === 'missing' && (
           <MissingIssues comics={comics} />
@@ -387,6 +422,17 @@ function App() {
         onClose={handleCloseBulkCoverManager}
         initialFilterIds={bulkCoverFilterIds}
       />
+
+      {/* Toast notification for successful imports */}
+      {showToast && (
+        <Toast
+          message={toastMessage}
+          action="View Collection →"
+          onActionClick={handleViewRecentlyImported}
+          onClose={() => setShowToast(false)}
+          duration={8000}
+        />
+      )}
     </div>
       </ErrorFeedbackProvider>
     </AppErrorBoundary>

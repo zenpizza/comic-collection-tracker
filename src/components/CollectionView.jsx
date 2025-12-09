@@ -7,7 +7,7 @@ import ComicDetailView from './ComicDetailView'
 import { getSavedViewMode, saveViewMode } from '../utils/viewModeStorage'
 import './CollectionView.css'
 
-function CollectionView({ comics, onRemove, onEdit }) {
+function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, onClearRecentFilter = null }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('series')
   const [viewMode, setViewMode] = useState(getSavedViewMode())
@@ -34,6 +34,13 @@ function CollectionView({ comics, onRemove, onEdit }) {
   }
 
   const filteredComics = comics.filter(comic => {
+    // Recently imported filter (takes precedence)
+    if (recentlyImportedIds && recentlyImportedIds.length > 0) {
+      if (!recentlyImportedIds.includes(comic.id)) {
+        return false
+      }
+    }
+
     // Enhanced text search filter including cover-related fields
     const searchLower = searchTerm.toLowerCase()
     const matchesSearch = comic.series.toLowerCase().includes(searchLower) ||
@@ -100,6 +107,15 @@ function CollectionView({ comics, onRemove, onEdit }) {
 
   return (
     <div className="collection-view">
+      {recentlyImportedIds && recentlyImportedIds.length > 0 && (
+        <div className="recently-imported-banner">
+          <span>📦 Showing {filteredComics.length} newly imported comics</span>
+          <button onClick={onClearRecentFilter} className="clear-filter-btn">
+            View All Comics
+          </button>
+        </div>
+      )}
+
       <div className="collection-header">
         <h2>My Collection ({comics.length} issues)</h2>
         
