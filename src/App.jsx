@@ -125,7 +125,9 @@ function App() {
               originalUrl: coverData.metadata?.originalUrl,
               attribution: coverData.metadata?.attribution,
               quality: coverData.metadata?.quality,
-              dimensions: coverData.metadata?.dimensions
+              dimensions: coverData.metadata?.dimensions,
+              volumeId: coverData.metadata?.volumeId,
+              volumeName: coverData.metadata?.volumeName
             })
             console.log('Cover uploaded successfully for comic:', savedComic.id)
           }
