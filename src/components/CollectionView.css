@@ -2,6 +2,41 @@
   max-width: 100%;
 }
 
+.recently-imported-banner {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recently-imported-banner span {
+  color: #1565c0;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.clear-filter-btn {
+  background: #1976d2;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.clear-filter-btn:hover {
+  background: #1565c0;
+}
+
 .collection-header {
   margin-bottom: 2rem;
 }
