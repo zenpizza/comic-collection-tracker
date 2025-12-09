@@ -439,6 +439,20 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                   />
                 </div>
 
+                {comic.volumeName && (
+                  <div className="form-group volume-info-edit">
+                    <label>Volume (from ComicVine)</label>
+                    <input
+                      type="text"
+                      value={`${comic.volumeName}${comic.volumeId ? ` (ID: ${comic.volumeId})` : ''}`}
+                      readOnly
+                      className="form-input readonly-field"
+                      title="Volume information from ComicVine - re-fetch cover to update"
+                    />
+                    <small className="field-hint">Auto-populated from cover search (read-only)</small>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label>Variant</label>
                   <input
@@ -491,6 +505,18 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                     <div className="detail-item">
                       <span className="detail-label">Year:</span>
                       <span className="detail-value">{comic.year}</span>
+                    </div>
+                  )}
+
+                  {comic.volumeName && (
+                    <div className="detail-item volume-info">
+                      <span className="detail-label">Volume:</span>
+                      <span className="detail-value" title={`Volume ID: ${comic.volumeId || 'N/A'}`}>
+                        {comic.volumeName}
+                        {comic.volumeId && (
+                          <span className="volume-id"> (ID: {comic.volumeId})</span>
+                        )}
+                      </span>
                     </div>
                   )}
 
