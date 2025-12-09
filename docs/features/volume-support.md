@@ -4,6 +4,8 @@
 
 The Comic Collection Tracker now captures and stores volume information from ComicVine to improve cover search accuracy and enable future grouping features.
 
+This feature addresses the common issue where publishers change series titles mid-run (like DC's Firestorm), which ComicVine tracks as separate volumes.
+
 ## Background
 
 Comic publishers sometimes change the title of a series during its run. For example, DC's Firestorm series had multiple title changes:
