@@ -44,6 +44,15 @@ See `docs/COVER_SEARCH_SYSTEM.md` for complete documentation
 - Built-in retry logic and batch upload support
 - See `COVER_UPLOAD_FIX.md` for technical details
 
+### Bulk Import with Cover Fetch
+- Import multiple comics via text or issue range
+- Post-import prompt to fetch covers immediately
+- BulkCoverManager opens pre-filtered to newly imported comics
+- Toast notification with "View Collection" action
+- Collection view filters to show only newly imported comics
+- Seamless workflow: Import → Fetch Covers → View Results
+- See `docs/features/bulk-import-cover-prompt.md` for details
+
 ### View Modes
 List view and grid view for browsing collection
 
@@ -74,7 +83,20 @@ Located in `scripts/` directory for database maintenance:
 
 All scripts use `.env.local` for MongoDB Atlas connection.
 
-## Recent Bug Fixes (Nov 2025)
+## Recent Features & Bug Fixes (Dec 2025)
+
+### Bulk Import Cover Prompt (Dec 8, 2025)
+- **Feature**: Post-import workflow for fetching covers
+- **Implementation**: Toast notifications, collection filtering, visual feedback
+- **Impact**: Seamless user experience from import to viewing results
+- **Details**: See `docs/features/bulk-import-cover-prompt.md`
+
+### Image Upload Endpoint Routing Fix (Dec 8, 2025)
+- **Issue**: Local dev server routing `/api/images/upload` to wrong handler
+- **Fix**: Updated `server.js` to use dedicated `imageUploadHandler` from `/api/images/upload.js`
+- **Impact**: Cover uploads now work correctly in local development
+
+## Bug Fixes (Nov 2025)
 
 ### Cover Search Year Parameter
 - **Issue**: Cover search API wasn't including year parameter from Add Comic form
