@@ -98,6 +98,18 @@ export function parseComicIssueForSearch(comic) {
 export function generateSearchFallbacks(series, issue) {
   const fallbacks = []
   
+  // Remove subtitle after comma (e.g., "Firestorm, the Nuclear Man" -> "Firestorm")
+  if (series.includes(',')) {
+    const beforeComma = series.split(',')[0].trim()
+    if (beforeComma.length > 0 && beforeComma !== series) {
+      fallbacks.push({
+        series: beforeComma,
+        issue: issue,
+        reason: `Removed subtitle after comma`
+      })
+    }
+  }
+  
   // Remove common adjectives that might not be in Comic Vine
   const adjectives = ['uncanny', 'amazing', 'spectacular', 'sensational', 'incredible', 'invincible', 'mighty', 'astonishing', 'extraordinary']
   
