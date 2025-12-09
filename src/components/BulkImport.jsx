@@ -36,11 +36,20 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
   const parseComicLine = (line) => {
     // Supported formats:
     // 1. Comma-separated: "Amazing Spider-Man, 1, Marvel, 2023"
-    // 2. Hash format: "Amazing Spider-Man #1"
+    // 2. Escaped commas: "Firestorm\, the Nuclear Man, 90, DC, 1990"
+    // 3. Hash format: "Amazing Spider-Man #1"
 
     // Try comma-separated format first
     if (line.includes(',')) {
-      const parts = line.split(',').map(p => p.trim())
+      // Handle escaped commas: replace \, with a placeholder before splitting
+      const COMMA_PLACEHOLDER = '___COMMA___'
+      const processedLine = line.replace(/\\,/g, COMMA_PLACEHOLDER)
+      
+      const parts = processedLine.split(',').map(p => {
+        // Restore escaped commas and trim
+        return p.replace(new RegExp(COMMA_PLACEHOLDER, 'g'), ',').trim()
+      })
+      
       if (parts.length >= 2) {
         return {
           series: parts[0],
@@ -229,6 +238,7 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
                 <ul>
                   <li>Amazing Spider-Man #1</li>
                   <li>Amazing Spider-Man, 1, Marvel, 2023</li>
+                  <li>Firestorm\, the Nuclear Man, 90, DC, 1990 <em>(use \, to escape commas in titles)</em></li>
                 </ul>
               </div>
               <textarea
