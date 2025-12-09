@@ -81,10 +81,8 @@ See [Deployment Architecture](docs/DEPLOYMENT_ARCHITECTURE.md) for details.
 **Single Comic**: Use the "Add Comic" tab to add individual comics with details like series, issue number, publisher, year, variant, and notes.
 
 **Bulk Import**: Use the "Bulk Import" tab for multiple comics:
-- **Text Import**: Paste a list of comics in various formats:
+- **Text Import**: Paste a list of comics in these formats:
   - `Amazing Spider-Man #1`
-  - `Amazing Spider-Man #1 (Marvel, 2023)`
-  - `Amazing Spider-Man #1 - Variant A (Marvel, 2023)`
   - `Amazing Spider-Man, 1, Marvel, 2023`
 - **Issue Range**: Perfect for complete runs (e.g., issues 1-50 of a series)
 
