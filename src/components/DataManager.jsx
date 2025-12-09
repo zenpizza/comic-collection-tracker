@@ -206,6 +206,7 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
   }
 
   const handleCoverUpdate = async (comicId, coverData) => {
+    console.log('[DataManager] ===== handleCoverUpdate START =====')
     console.log('[DataManager] handleCoverUpdate called:', { comicId, coverData })
     
     // Extract metadata from coverData (it's nested inside metadata property)
