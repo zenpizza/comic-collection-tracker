@@ -36,6 +36,14 @@ See `docs/COVER_SEARCH_SYSTEM.md` for complete documentation
 - Backend prioritizes volumes by proximity to target year (not hard filtering)
 - Helps disambiguate between different series runs with same name
 
+### Volume Support (Dec 2025)
+- **Feature**: Capture and store ComicVine volume metadata
+- **Fields**: `volumeId` and `volumeName` stored with each comic
+- **Auto-population**: Volume fields automatically filled when covers are fetched from ComicVine
+- **Purpose**: Improves cover search accuracy and enables future grouping of title-changed series
+- **Example**: DC's Firestorm had multiple title changes but same volume run
+- **Details**: See `docs/features/volume-support.md`
+
 ### Cover Upload System
 - Centralized upload client (`imageUploadClient.js`) - single source of truth
 - Uses multipart/form-data for efficient uploads (no base64 overhead)
