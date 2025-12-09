@@ -108,7 +108,8 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
       return
     }
 
-    onAddMultiple(previewComics)
+    const importCount = previewComics.length
+    onAddMultiple(previewComics, importCount)
     
     // Reset form
     setTextInput('')
@@ -121,8 +122,6 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
       skipIssues: ''
     })
     setPreviewComics([])
-    
-    alert(`Successfully imported ${previewComics.length} comics!`)
   }
 
   const removeFromPreview = (index) => {

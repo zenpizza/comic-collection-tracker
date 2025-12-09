@@ -7,7 +7,7 @@ import coverUpdateService from '../utils/coverUpdateService'
 import coverSelectionService from '../utils/coverSelectionService'
 import './BulkCoverManager.css'
 
-function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose }) {
+function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose, initialFilterIds = null }) {
   const [selectedComics, setSelectedComics] = useState([])
   const [operation, setOperation] = useState('fetch') // 'fetch', 'replace', 'remove', 'migrate', 'assess'
   const [isProcessing, setIsProcessing] = useState(false)
@@ -32,6 +32,11 @@ function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose }) {
   // Filter and sort comics based on current settings
   const filteredComics = useMemo(() => {
     return comics.filter(comic => {
+      // Initial filter by specific IDs (for bulk import flow)
+      if (initialFilterIds && initialFilterIds.length > 0) {
+        if (!initialFilterIds.includes(comic.id)) return false
+      }
+
       // Search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase()
@@ -67,7 +72,7 @@ function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose }) {
           return 0
       }
     })
-  }, [comics, searchTerm, filterBy, sortBy])
+  }, [comics, searchTerm, filterBy, sortBy, initialFilterIds])
 
   // Calculate actual selected count (only comics that are in the filtered list)
   const actualSelectedCount = useMemo(() => {
@@ -701,6 +706,11 @@ function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose }) {
 
           {/* Filters and Search */}
           <div className="filter-section">
+            {initialFilterIds && initialFilterIds.length > 0 && (
+              <div className="filter-notice">
+                📦 Showing {filteredComics.length} newly imported comics
+              </div>
+            )}
             <div className="filter-row">
               <div className="filter-group">
                 <label>Search:</label>
