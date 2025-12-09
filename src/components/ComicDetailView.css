@@ -408,3 +408,54 @@
     width: 100%;
   }
 }
+
+/* Volume info styling */
+.detail-item.volume-info {
+  background-color: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #e1e5e9;
+}
+
+.detail-item.volume-info .detail-label {
+  color: #6c757d;
+}
+
+.detail-item.volume-info .volume-id {
+  font-size: 0.85em;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Volume info in edit mode */
+.form-group.volume-info-edit {
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e1e5e9;
+}
+
+.form-group.volume-info-edit label {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.form-group.volume-info-edit .readonly-field {
+  background-color: #fff;
+  color: #495057;
+  cursor: default;
+  border-color: #ced4da;
+}
+
+.form-group.volume-info-edit .readonly-field:focus {
+  border-color: #ced4da;
+  box-shadow: none;
+}
+
+.form-group.volume-info-edit .field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-style: italic;
+}
