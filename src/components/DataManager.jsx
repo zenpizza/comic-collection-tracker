@@ -206,12 +206,25 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
   }
 
   const handleCoverUpdate = async (comicId, coverData) => {
+    console.log('[DataManager] handleCoverUpdate called:', { comicId, coverData })
+    
+    // Extract metadata from coverData (it's nested inside metadata property)
+    const metadataToApply = coverData.metadata || coverData
+    
+    console.log('[DataManager] Extracted metadata:', { 
+      comicId, 
+      volumeId: metadataToApply.volumeId, 
+      volumeName: metadataToApply.volumeName,
+      hasCover: metadataToApply.hasCover,
+      fullMetadata: metadataToApply 
+    })
+    
     // Update local state
     if (onComicsUpdate) {
       onComicsUpdate(prevComics => 
         prevComics.map(comic => 
           comic.id === comicId 
-            ? { ...comic, ...coverData }
+            ? { ...comic, ...metadataToApply }
             : comic
         )
       )
@@ -221,7 +234,15 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
     try {
       const comicToUpdate = comics.find(c => c.id === comicId)
       if (comicToUpdate) {
-        const updatedComic = { ...comicToUpdate, ...coverData }
+        const updatedComic = { ...comicToUpdate, ...metadataToApply }
+        console.log('[DataManager] Saving to database:', { 
+          comicId, 
+          volumeId: updatedComic.volumeId, 
+          volumeName: updatedComic.volumeName,
+          hasCover: updatedComic.hasCover,
+          coverSource: updatedComic.coverSource,
+          fullComic: updatedComic 
+        })
         await dataStore.updateComic(updatedComic)
         console.log(`[DataManager] Saved cover metadata to database for comic: ${comicId}`)
       }
