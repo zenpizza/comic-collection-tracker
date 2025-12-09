@@ -24,6 +24,7 @@ import { fileURLToPath } from 'url'
 // Import API handlers
 import comicsHandler from './api/comics.js'
 import comicByIdHandler from './api/comics/[id].js'
+import comicsBulkHandler from './api/comics/bulk.js'
 import imagesHandler from './api/images.js'
 import coverProxyHandler from './api/cover-proxy.js'
 import downloadHandler from './api/download.js'
@@ -143,6 +144,10 @@ app.get('/api/stats', async (req, res) => {
 app.get('/api/comics', comicsHandler)
 app.post('/api/comics', comicsHandler)
 app.options('/api/comics', comicsHandler)
+
+// Bulk operations endpoint (must come before :id route to avoid conflicts)
+app.post('/api/comics/bulk', (req, res) => comicsBulkHandler(req, res))
+app.options('/api/comics/bulk', (req, res) => comicsBulkHandler(req, res))
 
 // Individual comic endpoint (must come after /api/comics to avoid route conflicts)
 app.get('/api/comics/:id', (req, res) => comicByIdHandler(req, res))
