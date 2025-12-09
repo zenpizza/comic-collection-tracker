@@ -294,7 +294,9 @@ function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose, initialFi
           provider: selectedCover.provider,
           originalUrl: selectedCover.imageUrl,
           attribution: selectedCover.attribution,
-          quality: selectedCover.quality
+          quality: selectedCover.quality,
+          volumeId: selectedCover.metadata?.volumeId,
+          volumeName: selectedCover.metadata?.volumeName
         }
       )
 

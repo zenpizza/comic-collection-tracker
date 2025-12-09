@@ -17,7 +17,9 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
     publisher: '',
     year: '',
     variant: '',
-    notes: ''
+    notes: '',
+    volumeId: '',
+    volumeName: ''
   })
   const [showSeriesDropdown, setShowSeriesDropdown] = useState(false)
   const [filteredSeries, setFilteredSeries] = useState([])
@@ -103,7 +105,9 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       publisher: '',
       year: '',
       variant: '',
-      notes: ''
+      notes: '',
+      volumeId: '',
+      volumeName: ''
     })
     setCoverData(null)
     setCoverError(null)
@@ -337,10 +341,21 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
           variant: coverResult.variant,
           quality: coverResult.quality,
           dimensions: coverResult.dimensions,
-          downloadedAt: new Date().toISOString()
+          downloadedAt: new Date().toISOString(),
+          volumeId: coverResult.metadata?.volumeId,
+          volumeName: coverResult.metadata?.volumeName
         },
         previewUrl: URL.createObjectURL(coverBlob)
       })
+
+      // Auto-populate volume fields in form
+      if (coverResult.metadata?.volumeName) {
+        setFormData(prev => ({
+          ...prev,
+          volumeId: coverResult.metadata.volumeId || '',
+          volumeName: coverResult.metadata.volumeName || ''
+        }))
+      }
 
     } catch (error) {
       console.error('Error auto-selecting cover:', error)
@@ -378,6 +393,15 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
         },
         previewUrl: selectedCoverData.previewUrl
       })
+
+      // Auto-populate volume fields in form
+      if (selectedCoverData.metadata?.volumeName) {
+        setFormData(prev => ({
+          ...prev,
+          volumeId: selectedCoverData.metadata.volumeId || '',
+          volumeName: selectedCoverData.metadata.volumeName || ''
+        }))
+      }
 
     } catch (error) {
       console.error('Error processing selected cover:', error)
@@ -499,6 +523,22 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
             max="2030"
           />
         </div>
+
+        {formData.volumeName && (
+          <div className="form-group volume-info">
+            <label htmlFor="volumeName">Volume (from ComicVine)</label>
+            <input
+              type="text"
+              id="volumeName"
+              name="volumeName"
+              value={formData.volumeName}
+              readOnly
+              className="readonly-field"
+              title={`Volume ID: ${formData.volumeId || 'N/A'}`}
+            />
+            <small className="field-hint">Auto-populated from cover search</small>
+          </div>
+        )}
 
         <div className="form-group">
           <label htmlFor="variant">Variant/Cover</label>

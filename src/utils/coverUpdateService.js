@@ -59,7 +59,10 @@ class CoverUpdateService {
         coverSourceProvider: metadata.provider || 'unknown',
         coverOriginalUrl: metadata.originalUrl || null,
         coverAttribution: metadata.attribution || null,
-        coverLastUpdated: new Date().toISOString()
+        coverLastUpdated: new Date().toISOString(),
+        // Volume information from ComicVine (if available)
+        volumeId: metadata.volumeId || null,
+        volumeName: metadata.volumeName || null
       }
       
       // Clear cache to ensure fresh image is loaded
@@ -98,7 +101,9 @@ class CoverUpdateService {
         coverSourceProvider: null,
         coverOriginalUrl: null,
         coverAttribution: null,
-        coverLastUpdated: new Date().toISOString()
+        coverLastUpdated: new Date().toISOString(),
+        // Note: We keep volumeId/volumeName when removing cover
+        // as they're still valid metadata about the comic
       }
       
       // Clear cache
@@ -228,6 +233,8 @@ class CoverUpdateService {
       coverOriginalUrl: null,
       coverAttribution: null,
       coverLastUpdated: null,
+      volumeId: null,
+      volumeName: null,
       ...overrides
     }
   }
