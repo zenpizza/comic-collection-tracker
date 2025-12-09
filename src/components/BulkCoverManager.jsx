@@ -222,8 +222,20 @@ function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose, initialFi
 
         // Update comic if successful
         if (processedResult.success && resultValue?.metadata) {
+          console.log('[BulkCoverManager] About to call onCoverUpdate:', {
+            comicId: comic.id,
+            metadata: resultValue.metadata,
+            hasCallback: !!onCoverUpdate
+          })
           // Use the standardized metadata from the service
           await onCoverUpdate(comic.id, resultValue.metadata)
+          console.log('[BulkCoverManager] onCoverUpdate completed for:', comic.id)
+        } else {
+          console.log('[BulkCoverManager] Skipping onCoverUpdate:', {
+            comicId: comic.id,
+            success: processedResult.success,
+            hasMetadata: !!resultValue?.metadata
+          })
         }
       }
 
