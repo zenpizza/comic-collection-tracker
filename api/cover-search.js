@@ -287,7 +287,9 @@ export default async function handler(req, res) {
           storeDate: result.store_date || null,
           year: result.cover_date ? new Date(result.cover_date).getFullYear() : null,
           apiId: result.id.toString(),
-          originalUrl: result.site_detail_url
+          originalUrl: result.site_detail_url,
+          volumeId: result.volume?.id?.toString() || null,
+          volumeName: result.volume?.name || null
         }
       }))
 
