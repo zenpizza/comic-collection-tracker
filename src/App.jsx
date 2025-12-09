@@ -5,6 +5,7 @@ import CollectionView from './components/CollectionView'
 import MissingIssues from './components/MissingIssues'
 import DataManager from './components/DataManager'
 import DuplicateManager from './components/DuplicateManager'
+import BulkCoverManager from './components/BulkCoverManager'
 import ErrorHandlingTest from './components/ErrorHandlingTest'
 import { ErrorFeedbackProvider } from './components/ErrorFeedback'
 import dataStore from './utils/dataStore'
@@ -50,6 +51,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('collection')
   const [isLoading, setIsLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState('saved') // 'saving', 'saved', 'error'
+  const [showBulkCoverManager, setShowBulkCoverManager] = useState(false)
+  const [bulkCoverFilterIds, setBulkCoverFilterIds] = useState(null)
 
   // Load comics from persistent storage on mount
   useEffect(() => {
@@ -143,7 +146,7 @@ function App() {
     }
   }
 
-  const addMultipleComics = async (comicsToAdd) => {
+  const addMultipleComics = async (comicsToAdd, expectedCount) => {
     // Check for duplicates in bulk import
     const duplicatesFound = []
     const uniqueComics = []
@@ -181,11 +184,32 @@ function App() {
     
     try {
       setSaveStatus('saving')
+      const beforeCount = comics.length
+      
       // Save to database first using bulk operation
       await dataStore.saveComics([...comics, ...newComics])
       // Then refresh from database to get the current state
       await loadComicsFromStore()
       setSaveStatus('saved')
+      
+      // Get the newly added comics (last N comics by dateAdded)
+      const afterComics = await dataStore.loadComics()
+      const sortedByDate = [...afterComics].sort((a, b) => 
+        new Date(b.dateAdded) - new Date(a.dateAdded)
+      )
+      const newlyAddedComics = sortedByDate.slice(0, uniqueComics.length)
+      const newComicIds = newlyAddedComics.map(c => c.id)
+      
+      // Show success message and prompt for cover fetch
+      const fetchCovers = window.confirm(
+        `Successfully imported ${uniqueComics.length} comics!\n\n` +
+        `Would you like to fetch covers for these comics now?`
+      )
+      
+      if (fetchCovers) {
+        setBulkCoverFilterIds(newComicIds)
+        setShowBulkCoverManager(true)
+      }
     } catch (error) {
       console.error('Error adding multiple comics:', error)
       setSaveStatus('error')
@@ -236,6 +260,23 @@ function App() {
         comic: updatedComic
       })
     }
+  }
+
+  const handleBulkCoverUpdate = async (comicId, coverData) => {
+    try {
+      setSaveStatus('saving')
+      // Refresh from database to get updated cover data
+      await loadComicsFromStore()
+      setSaveStatus('saved')
+    } catch (error) {
+      console.error('Error after cover update:', error)
+      setSaveStatus('error')
+    }
+  }
+
+  const handleCloseBulkCoverManager = () => {
+    setShowBulkCoverManager(false)
+    setBulkCoverFilterIds(null)
   }
 
   return (
@@ -337,6 +378,15 @@ function App() {
           <ErrorHandlingTest />
         )}
       </main>
+
+      {/* Bulk Cover Manager Modal - can be opened from bulk import */}
+      <BulkCoverManager
+        comics={comics}
+        onCoverUpdate={handleBulkCoverUpdate}
+        isVisible={showBulkCoverManager}
+        onClose={handleCloseBulkCoverManager}
+        initialFilterIds={bulkCoverFilterIds}
+      />
     </div>
       </ErrorFeedbackProvider>
     </AppErrorBoundary>

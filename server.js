@@ -26,6 +26,7 @@ import comicsHandler from './api/comics.js'
 import comicByIdHandler from './api/comics/[id].js'
 import comicsBulkHandler from './api/comics/bulk.js'
 import imagesHandler from './api/images.js'
+import imageUploadHandler from './api/images/upload.js'
 import coverProxyHandler from './api/cover-proxy.js'
 import downloadHandler from './api/download.js'
 import coverSearchHandler from './api/cover-search.js'
@@ -155,8 +156,9 @@ app.put('/api/comics/:id', (req, res) => comicByIdHandler(req, res))
 app.delete('/api/comics/:id', (req, res) => comicByIdHandler(req, res))
 app.options('/api/comics/:id', (req, res) => comicByIdHandler(req, res))
 
-// Images endpoint
-app.post('/api/images/upload', imagesHandler)
+// Images endpoint - upload must come first to avoid being caught by generic handler
+app.post('/api/images/upload', imageUploadHandler)
+app.options('/api/images/upload', imageUploadHandler)
 app.post('/api/images/sync', imagesHandler)
 app.get('/api/images/stats', imagesHandler)
 app.get('/api/images/:comicId/:size', imagesHandler)

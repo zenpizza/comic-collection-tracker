@@ -114,6 +114,17 @@
   border-radius: 8px;
 }
 
+.filter-notice {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  color: #1565c0;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
 .filter-row {
   display: flex;
   gap: 16px;
