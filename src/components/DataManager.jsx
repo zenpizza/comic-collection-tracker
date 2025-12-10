@@ -5,12 +5,6 @@ import imageCache from '../utils/imageCache'
 import BulkCoverManager from './BulkCoverManager'
 import './DataManager.css'
 
-// Global test function to verify callback execution
-window.testCallback = (comicId, data) => {
-  alert('Global callback called with: ' + comicId)
-  console.log('Global callback data:', data)
-}
-
 function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
   const [stats, setStats] = useState(null)
   const [storageStats, setStorageStats] = useState(null)
@@ -212,21 +206,8 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
   }
 
   const handleCoverUpdate = React.useCallback(async (comicId, coverData) => {
-    // Use alert to ensure we see this even if console.log is stripped
-    alert('[DataManager] handleCoverUpdate called with comicId: ' + comicId)
-    console.log('[DataManager] ===== handleCoverUpdate START ===== (Dec 10 - new MongoDB creds)')
-    console.log('[DataManager] handleCoverUpdate called:', { comicId, coverData })
-    
     // Extract metadata from coverData (it's nested inside metadata property)
     const metadataToApply = coverData.metadata || coverData
-    
-    console.log('[DataManager] Extracted metadata:', { 
-      comicId, 
-      volumeId: metadataToApply.volumeId, 
-      volumeName: metadataToApply.volumeName,
-      hasCover: metadataToApply.hasCover,
-      fullMetadata: metadataToApply 
-    })
     
     // Update local state
     if (onComicsUpdate) {
