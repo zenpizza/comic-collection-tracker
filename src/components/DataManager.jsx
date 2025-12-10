@@ -682,7 +682,7 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
       {/* Bulk Cover Manager Modal */}
       <BulkCoverManager
         comics={comics}
-        onCoverUpdate={handleCoverUpdate}
+        onCoverUpdate={window.testCallback}
         isVisible={showBulkCoverManager}
         onClose={() => setShowBulkCoverManager(false)}
       />
