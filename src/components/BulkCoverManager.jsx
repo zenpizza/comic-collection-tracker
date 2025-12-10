@@ -7,7 +7,7 @@ import coverUpdateService from '../utils/coverUpdateService'
 import coverSelectionService from '../utils/coverSelectionService'
 import './BulkCoverManager.css'
 
-function BulkCoverManager({ comics, isVisible, onClose, initialFilterIds = null }) {
+function BulkCoverManager({ comics, isVisible, onClose, onCoverUpdate, initialFilterIds = null }) {
   const [selectedComics, setSelectedComics] = useState([])
   const [operation, setOperation] = useState('fetch') // 'fetch', 'replace', 'remove', 'migrate', 'assess'
   const [isProcessing, setIsProcessing] = useState(false)
@@ -227,8 +227,12 @@ function BulkCoverManager({ comics, isVisible, onClose, initialFilterIds = null 
             volumeId: resultValue.metadata.volumeId,
             volumeName: resultValue.metadata.volumeName
           })
-          // Note: Database save is handled by coverUpdateService.addCover() 
-          // No need for callback - the API endpoint saves everything including volume data
+          
+          // Call the callback to refresh parent data
+          if (onCoverUpdate) {
+            await onCoverUpdate(comic.id, resultValue.metadata)
+          }
+          
           console.log('[BulkCoverManager] onCoverUpdate completed for:', comic.id)
         } else {
           console.log('[BulkCoverManager] Skipping onCoverUpdate:', {

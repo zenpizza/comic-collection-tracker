@@ -24,9 +24,7 @@ function CoverImage({
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isInView, setIsInView] = useState(!lazy)
-  const [currentImageUrl, setCurrentImageUrl] = useState(
-    comic?.hasCover ? null : fallbackStrategy.placeholderUrl
-  )
+  const [currentImageUrl, setCurrentImageUrl] = useState(null)
   const imgRef = useRef(null)
   const observerRef = useRef(null)
 
@@ -68,18 +66,8 @@ function CoverImage({
     async function loadImage() {
       console.log('[CoverImage] loadImage called:', { comicId, isInView, hasCover: comic?.hasCover })
       
-      // If comic doesn't have a cover, skip API call and show placeholder immediately
-      if (!comic?.hasCover) {
-        console.log('[CoverImage] No cover available, using placeholder')
-        if (mounted) {
-          setCurrentImageUrl(fallbackStrategy.placeholderUrl)
-          setIsLoading(false)
-          setHasError(false)
-        }
-        return
-      }
-      
-      // If we have a comicId and cover exists, try fetching from API
+      // Always try to fetch from API if we have a comicId - let the API determine if cover exists
+      // This aligns with unidirectional data flow where covers reference comics, not vice versa
       if (comicId && isInView) {
         console.log('[CoverImage] Attempting to fetch from API:', { comicId, size })
         try {
@@ -114,7 +102,7 @@ function CoverImage({
       mounted = false
       // Note: blob URLs are auto-revoked by ImageURLService
     }
-  }, [comicId, size, isInView, fallbackStrategy.placeholderUrl, comic?.hasCover])
+  }, [comicId, size, isInView, fallbackStrategy.placeholderUrl])
 
   const handleImageLoad = () => {
     setIsLoading(false)
