@@ -54,18 +54,19 @@ class CoverUpdateService {
       
       console.log('[CoverUpdateService] Upload successful:', uploadResult)
       
-      // Construct standardized metadata object
+      // Construct standardized metadata object for comic record
+      // Only include fields that belong on the comic record
       const coverMetadata = {
         hasCover: true,
-        coverId: uploadResult.imageId || Date.now().toString(),
-        coverSource: metadata.source || 'api',
-        coverSourceProvider: metadata.provider || 'unknown',
-        coverOriginalUrl: metadata.originalUrl || null,
-        coverAttribution: metadata.attribution || null,
-        coverLastUpdated: new Date().toISOString(),
-        // Volume information from ComicVine (if available)
-        volumeId: metadata.volumeId || null,
-        volumeName: metadata.volumeName || null
+        coverLastUpdated: new Date().toISOString()
+      }
+      
+      // Only add volume metadata if provided (don't overwrite existing with null)
+      if (metadata.volumeId) {
+        coverMetadata.volumeId = metadata.volumeId
+      }
+      if (metadata.volumeName) {
+        coverMetadata.volumeName = metadata.volumeName
       }
       
       // Clear cache to ensure fresh image is loaded
