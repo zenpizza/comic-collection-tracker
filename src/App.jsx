@@ -289,9 +289,12 @@ function App() {
     }
   }
 
-  const handleCloseBulkCoverManager = () => {
+  const handleCloseBulkCoverManager = async () => {
     setShowBulkCoverManager(false)
     setBulkCoverFilterIds(null)
+    
+    // Refresh comics data to reflect updated hasCover flags
+    await loadComicsFromStore()
     
     // Show toast if we have recently imported comics
     if (recentlyImportedIds && recentlyImportedIds.length > 0) {
