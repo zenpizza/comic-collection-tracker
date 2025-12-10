@@ -95,7 +95,7 @@ export default async function handler(req, res) {
           coverLastUpdated: new Date().toISOString()
         }
         
-        // Add volume metadata if provided
+        // Add volume metadata if provided (these belong on comic record)
         if (metadata.volumeId) {
           updateFields.volumeId = metadata.volumeId
         }
@@ -103,19 +103,10 @@ export default async function handler(req, res) {
           updateFields.volumeName = metadata.volumeName
         }
         
-        // Add other cover metadata if provided
-        if (metadata.coverSource) {
-          updateFields.coverSource = metadata.coverSource
-        }
-        if (metadata.coverSourceProvider) {
-          updateFields.coverSourceProvider = metadata.coverSourceProvider
-        }
-        if (metadata.coverOriginalUrl) {
-          updateFields.coverOriginalUrl = metadata.coverOriginalUrl
-        }
-        if (metadata.coverAttribution) {
-          updateFields.coverAttribution = metadata.coverAttribution
-        }
+        // Note: Cover-specific metadata (coverSource, coverSourceProvider, 
+        // coverOriginalUrl, coverAttribution) is stored in cover_images collection,
+        // not on the comic record. Only hasCover, coverLastUpdated, and volume
+        // metadata belong on the comic record.
         
         await comicsCollection.updateOne(
           { _id: new ObjectId(comicId) },
