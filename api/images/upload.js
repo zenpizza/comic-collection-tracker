@@ -89,11 +89,39 @@ export default async function handler(req, res) {
       const comicsCollection = database.collection('comics')
       
       if (ObjectId.isValid(comicId) && comicId.length === 24) {
+        // Prepare update fields
+        const updateFields = {
+          hasCover: true,
+          coverLastUpdated: new Date().toISOString()
+        }
+        
+        // Add volume metadata if provided
+        if (metadata.volumeId) {
+          updateFields.volumeId = metadata.volumeId
+        }
+        if (metadata.volumeName) {
+          updateFields.volumeName = metadata.volumeName
+        }
+        
+        // Add other cover metadata if provided
+        if (metadata.coverSource) {
+          updateFields.coverSource = metadata.coverSource
+        }
+        if (metadata.coverSourceProvider) {
+          updateFields.coverSourceProvider = metadata.coverSourceProvider
+        }
+        if (metadata.coverOriginalUrl) {
+          updateFields.coverOriginalUrl = metadata.coverOriginalUrl
+        }
+        if (metadata.coverAttribution) {
+          updateFields.coverAttribution = metadata.coverAttribution
+        }
+        
         await comicsCollection.updateOne(
           { _id: new ObjectId(comicId) },
-          { $set: { hasCover: true, coverLastUpdated: new Date().toISOString() } }
+          { $set: updateFields }
         )
-        console.log(`[Upload] Updated hasCover flag for comic: ${comicId}`)
+        console.log(`[Upload] Updated comic metadata for: ${comicId}`, updateFields)
       }
     } catch (error) {
       console.warn(`[Upload] Failed to update hasCover flag:`, error.message)
