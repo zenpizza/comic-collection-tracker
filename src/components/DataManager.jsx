@@ -205,7 +205,7 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
     }
   }
 
-  const handleCoverUpdate = async (comicId, coverData) => {
+  const handleCoverUpdate = React.useCallback(async (comicId, coverData) => {
     // Use alert to ensure we see this even if console.log is stripped
     alert('[DataManager] handleCoverUpdate called with comicId: ' + comicId)
     console.log('[DataManager] ===== handleCoverUpdate START ===== (Dec 10 - new MongoDB creds)')
@@ -253,7 +253,7 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
       console.error('[DataManager] Failed to save cover metadata to database:', error)
       // Don't throw - the cover was uploaded successfully, just the metadata save failed
     }
-  }
+  }, [comics, onComicsUpdate])
 
   const normalizeData = async () => {
     const confirmed = window.confirm(
