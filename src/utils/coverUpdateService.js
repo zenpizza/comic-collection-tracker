@@ -45,8 +45,10 @@ class CoverUpdateService {
           originalUrl: metadata.originalUrl,
           attribution: metadata.attribution,
           quality: metadata.quality,
-          dimensions: metadata.dimensions
-          // Note: Volume metadata is stored on comic record, not cover image record
+          dimensions: metadata.dimensions,
+          // Volume metadata from ComicVine
+          volumeId: metadata.volumeId,
+          volumeName: metadata.volumeName
         }
       )
       
