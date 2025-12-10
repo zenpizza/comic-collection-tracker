@@ -16,6 +16,31 @@
 
 import ImageURLService from './ImageURLService.js'
 import imageUploadClient from './imageUploadClient.js'
+import { MongoClient, ObjectId } from 'mongodb'
+
+// Database connection (reuse pattern from API files)
+let client
+let db
+
+async function connectToDatabase() {
+  if (db) {
+    return db
+  }
+
+  try {
+    // Use environment variables for connection
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI
+    const dbName = process.env.MONGODB_DB_NAME || process.env.MONGO_DB_NAME || 'comic-collection'
+    
+    client = new MongoClient(mongoUri)
+    await client.connect()
+    db = client.db(dbName)
+    return db
+  } catch (error) {
+    console.error('MongoDB connection error:', error)
+    throw error
+  }
+}
 
 class CoverUpdateService {
   /**
@@ -64,6 +89,23 @@ class CoverUpdateService {
         // Volume information from ComicVine (if available)
         volumeId: metadata.volumeId || null,
         volumeName: metadata.volumeName || null
+      }
+      
+      // Update comic record with cover metadata including volume info
+      console.log('[CoverUpdateService] Updating comic record with metadata:', comicId)
+      try {
+        const database = await connectToDatabase()
+        const comicsCollection = database.collection('comics')
+        
+        await comicsCollection.updateOne(
+          { _id: new ObjectId(comicId) },
+          { $set: coverMetadata }
+        )
+        
+        console.log('[CoverUpdateService] Comic record updated successfully')
+      } catch (dbError) {
+        console.warn('[CoverUpdateService] Failed to update comic record:', dbError)
+        // Don't fail the entire operation if comic update fails
       }
       
       // Clear cache to ensure fresh image is loaded
