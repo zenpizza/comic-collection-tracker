@@ -5,6 +5,12 @@ import imageCache from '../utils/imageCache'
 import BulkCoverManager from './BulkCoverManager'
 import './DataManager.css'
 
+// Global test function to verify callback execution
+window.testCallback = (comicId, data) => {
+  alert('Global callback called with: ' + comicId)
+  console.log('Global callback data:', data)
+}
+
 function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
   const [stats, setStats] = useState(null)
   const [storageStats, setStorageStats] = useState(null)
