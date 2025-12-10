@@ -7,6 +7,7 @@
 
 import { MongoClient, ObjectId } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { deleteCoverImages } from '../db-image-storage.js'
 
 let client
 let db
@@ -195,18 +196,30 @@ async function handleDeleteComic(req, res, id) {
       })
     }
     
-    const result = await collection.deleteOne({ _id: new ObjectId(id) })
-    
-    if (result.deletedCount === 0) {
+    // First check if comic exists
+    const comic = await collection.findOne({ _id: new ObjectId(id) })
+    if (!comic) {
       return res.status(404).json({
         success: false,
         error: 'Comic not found'
       })
     }
     
+    // Delete associated cover images first
+    try {
+      await deleteCoverImages(id)
+      console.log(`Deleted cover images for comic: ${id}`)
+    } catch (imageError) {
+      console.warn(`Failed to delete cover images for comic ${id}:`, imageError)
+      // Continue with comic deletion even if image deletion fails
+    }
+    
+    // Delete the comic record
+    const result = await collection.deleteOne({ _id: new ObjectId(id) })
+    
     return res.status(200).json({
       success: true,
-      message: 'Comic deleted successfully'
+      message: 'Comic and associated images deleted successfully'
     })
   } catch (error) {
     console.error('Error deleting comic:', error)
