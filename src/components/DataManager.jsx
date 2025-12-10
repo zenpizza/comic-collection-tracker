@@ -206,6 +206,8 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
   }
 
   const handleCoverUpdate = async (comicId, coverData) => {
+    // Use alert to ensure we see this even if console.log is stripped
+    alert('[DataManager] handleCoverUpdate called with comicId: ' + comicId)
     console.log('[DataManager] ===== handleCoverUpdate START ===== (Dec 10 - new MongoDB creds)')
     console.log('[DataManager] handleCoverUpdate called:', { comicId, coverData })
     
