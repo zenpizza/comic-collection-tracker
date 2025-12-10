@@ -176,6 +176,7 @@ function parseMultipartForm(req) {
       } else if (fieldname === 'metadata') {
         try {
           metadata = JSON.parse(value)
+          console.log('[Upload] Received metadata:', metadata)
         } catch (e) {
           console.warn('Failed to parse metadata:', e)
         }
