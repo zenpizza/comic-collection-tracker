@@ -7,7 +7,7 @@ import coverUpdateService from '../utils/coverUpdateService'
 import coverSelectionService from '../utils/coverSelectionService'
 import './BulkCoverManager.css'
 
-function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose, initialFilterIds = null }) {
+function BulkCoverManager({ comics, isVisible, onClose, initialFilterIds = null }) {
   const [selectedComics, setSelectedComics] = useState([])
   const [operation, setOperation] = useState('fetch') // 'fetch', 'replace', 'remove', 'migrate', 'assess'
   const [isProcessing, setIsProcessing] = useState(false)
@@ -220,25 +220,15 @@ function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose, initialFi
           current: prev.current + 1
         }))
 
-        // Update comic if successful
+        // Update comic if successful - follow Add Comic pattern
         if (processedResult.success && resultValue?.metadata) {
-          console.log('[BulkCoverManager] About to call onCoverUpdate:', {
-            comicId: comic.id,
-            metadata: resultValue.metadata,
-            hasCallback: !!onCoverUpdate,
-            callbackType: typeof onCoverUpdate,
-            callbackName: onCoverUpdate?.name,
-            callbackString: onCoverUpdate?.toString().substring(0, 100)
+          console.log('[BulkCoverManager] Cover added successfully for:', comic.id)
+          console.log('[BulkCoverManager] Volume metadata captured:', {
+            volumeId: resultValue.metadata.volumeId,
+            volumeName: resultValue.metadata.volumeName
           })
-          
-          // Try to call the callback and catch any errors
-          try {
-            const updateResult = await onCoverUpdate(comic.id, resultValue.metadata)
-            console.log('[BulkCoverManager] onCoverUpdate returned:', updateResult)
-          } catch (error) {
-            console.error('[BulkCoverManager] onCoverUpdate threw error:', error)
-            alert('[BulkCoverManager] Callback error: ' + error.message)
-          }
+          // Note: Database save is handled by coverUpdateService.addCover() 
+          // No need for callback - the API endpoint saves everything including volume data
           console.log('[BulkCoverManager] onCoverUpdate completed for:', comic.id)
         } else {
           console.log('[BulkCoverManager] Skipping onCoverUpdate:', {
@@ -260,6 +250,10 @@ function BulkCoverManager({ comics, onCoverUpdate, isVisible, onClose, initialFi
       ...prev,
       status: `Completed: ${results.filter(r => r.success).length} successful, ${results.filter(r => !r.success).length} failed`
     }))
+    
+    // Refresh the parent component to show updated data (like Add Comic flow)
+    console.log('[BulkCoverManager] Bulk operation completed, triggering parent refresh')
+    // Note: Parent will refresh when modal closes
   }
 
   const fetchCoverForComic = async (comic, retryCount = 0) => {
