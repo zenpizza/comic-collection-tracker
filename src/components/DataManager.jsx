@@ -682,9 +682,15 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
       {/* Bulk Cover Manager Modal */}
       <BulkCoverManager
         comics={comics}
-        onCoverUpdate={window.testCallback}
         isVisible={showBulkCoverManager}
-        onClose={() => setShowBulkCoverManager(false)}
+        onClose={() => {
+          setShowBulkCoverManager(false)
+          // Refresh data like Add Comic flow does
+          if (onRefresh) {
+            console.log('[DataManager] Refreshing data after bulk cover operation')
+            onRefresh()
+          }
+        }}
       />
     </div>
   )
