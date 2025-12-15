@@ -95,7 +95,6 @@ See [Deployment Architecture](docs/DEPLOYMENT_ARCHITECTURE.md) for details.
 - Add, replace, or delete cover images
 - Delete the comic from your collection
 
-**Quick Edit**: In the collection view, click the edit button (✏️) for inline editing without opening the detail view.
 
 ### Finding Missing Issues
 
