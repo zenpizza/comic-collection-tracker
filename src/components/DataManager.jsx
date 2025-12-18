@@ -3,21 +3,17 @@ import dataStore from '../utils/dataStore'
 import BulkCoverManager from './BulkCoverManager'
 import './DataManager.css'
 
-function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
+function DataManager({ comics, onImport, onRefresh }) {
   const [stats, setStats] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [showBulkCoverManager, setShowBulkCoverManager] = useState(false)
   const fileInputRef = useRef(null)
 
-  const loadStats = async () => {
+  const loadStats = () => {
     try {
-      setIsLoading(true)
       const collectionStats = dataStore.getCollectionStats(comics)
       setStats(collectionStats)
     } catch (error) {
       console.error('Error loading stats:', error)
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -99,186 +95,6 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
       if (doubleConfirmed) {
         onImport([])
         alert('All data has been cleared.')
-      }
-    }
-  }
-
-  const handleCoverUpdate = React.useCallback(async (comicId, coverData) => {
-    // Extract metadata from coverData (it's nested inside metadata property)
-    const metadataToApply = coverData.metadata || coverData
-    
-    // Update local state
-    if (onComicsUpdate) {
-      onComicsUpdate(prevComics => 
-        prevComics.map(comic => 
-          comic.id === comicId 
-            ? { ...comic, ...metadataToApply }
-            : comic
-        )
-      )
-    }
-    
-    // Persist to database
-    try {
-      const comicToUpdate = comics.find(c => c.id === comicId)
-      if (comicToUpdate) {
-        const updatedComic = { ...comicToUpdate, ...metadataToApply }
-        console.log('[DataManager] Saving to database:', { 
-          comicId, 
-          volumeId: updatedComic.volumeId, 
-          volumeName: updatedComic.volumeName,
-          hasCover: updatedComic.hasCover,
-          coverSource: updatedComic.coverSource,
-          fullComic: updatedComic 
-        })
-        await dataStore.updateComic(updatedComic)
-        console.log(`[DataManager] Saved cover metadata to database for comic: ${comicId}`)
-      }
-    } catch (error) {
-      console.error('[DataManager] Failed to save cover metadata to database:', error)
-      // Don't throw - the cover was uploaded successfully, just the metadata save failed
-    }
-  }, [comics, onComicsUpdate])
-
-  const normalizeData = async () => {
-    const confirmed = window.confirm(
-      'This will normalize data types (ensure all issue numbers are strings) and remove duplicate records from the database. Continue?'
-    )
-    
-    if (confirmed) {
-      try {
-        setIsLoading(true)
-        const response = await fetch('/api/comics/normalize', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        
-        const result = await response.json()
-        
-        if (result.success) {
-          alert(
-            `Data normalization completed!\n\n` +
-            `Records normalized: ${result.stats.recordsNormalized}\n` +
-            `Duplicates removed: ${result.stats.duplicatesRemoved}\n` +
-            `Final record count: ${result.stats.finalCount}`
-          )
-          
-          // Load fresh data from database and update state directly to avoid auto-save loop
-          try {
-            const freshComics = await dataStore.loadComics()
-            onImport(freshComics)
-          } catch (error) {
-            console.error('Error loading fresh data:', error)
-            // Fallback to refresh if direct load fails
-            if (onRefresh) {
-              await onRefresh()
-            }
-          }
-        } else {
-          throw new Error(result.error || 'Normalization failed')
-        }
-      } catch (error) {
-        console.error('Error normalizing data:', error)
-        alert(`Error normalizing data: ${error.message}`)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-  }
-
-  const runDeduplication = async () => {
-    const confirmed = window.confirm(
-      'This will scan for and remove duplicate comic records from the database. Continue?'
-    )
-    
-    if (confirmed) {
-      try {
-        setIsLoading(true)
-        const response = await fetch('/api/comics/dedupe', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        
-        const result = await response.json()
-        
-        if (result.success) {
-          alert(
-            `Deduplication completed!\n\n` +
-            `Duplicates removed: ${result.stats.duplicatesRemoved}\n` +
-            `Unique comics remaining: ${result.stats.uniqueRemaining}`
-          )
-          
-          // Load fresh data from database and update state directly to avoid auto-save loop
-          try {
-            const freshComics = await dataStore.loadComics()
-            onImport(freshComics)
-          } catch (error) {
-            console.error('Error loading fresh data:', error)
-            // Fallback to refresh if direct load fails
-            if (onRefresh) {
-              await onRefresh()
-            }
-          }
-        } else {
-          throw new Error(result.error || 'Deduplication failed')
-        }
-      } catch (error) {
-        console.error('Error running deduplication:', error)
-        alert(`Error running deduplication: ${error.message}`)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-  }
-
-  const cleanupIds = async () => {
-    const confirmed = window.confirm(
-      'This will standardize all comic IDs and years to numbers for consistency. Continue?'
-    )
-    
-    if (confirmed) {
-      try {
-        setIsLoading(true)
-        const response = await fetch('/api/comics/cleanup-ids', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        
-        const result = await response.json()
-        
-        if (result.success) {
-          alert(
-            `Number standardization completed!\n\n` +
-            `Fields converted: ${result.stats.idsConverted}\n` +
-            `Final ID types: ${result.stats.finalIdTypes.numbers} numbers, ${result.stats.finalIdTypes.strings} strings\n` +
-            `Final year types: ${result.stats.finalYearTypes.numbers} numbers, ${result.stats.finalYearTypes.strings} strings, ${result.stats.finalYearTypes.empty} empty`
-          )
-          
-          // Load fresh data from database and update state directly to avoid auto-save loop
-          try {
-            const freshComics = await dataStore.loadComics()
-            onImport(freshComics)
-          } catch (error) {
-            console.error('Error loading fresh data:', error)
-            // Fallback to refresh if direct load fails
-            if (onRefresh) {
-              await onRefresh()
-            }
-          }
-        } else {
-          throw new Error(result.error || 'ID cleanup failed')
-        }
-      } catch (error) {
-        console.error('Error running ID cleanup:', error)
-        alert(`Error running ID cleanup: ${error.message}`)
-      } finally {
-        setIsLoading(false)
       }
     }
   }
@@ -405,36 +221,6 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
           </div>
           <p className="action-description">
             Fetch, replace, or manage covers for multiple comics at once.
-          </p>
-        </div>
-
-        <div className="action-section">
-          <h4>Database Operations</h4>
-          <div className="action-buttons">
-            <button 
-              onClick={normalizeData} 
-              className="normalize-btn"
-              disabled={isLoading}
-            >
-              🔧 Normalize & Dedupe Data
-            </button>
-            <button 
-              onClick={runDeduplication} 
-              className="dedupe-btn"
-              disabled={isLoading}
-            >
-              🔍 Remove Duplicates
-            </button>
-            <button 
-              onClick={cleanupIds} 
-              className="cleanup-ids-btn"
-              disabled={isLoading}
-            >
-              🔢 Standardize Numbers
-            </button>
-          </div>
-          <p className="action-description">
-            Fix data type inconsistencies, standardize numeric fields (IDs, years), and remove duplicate records.
           </p>
         </div>
 
