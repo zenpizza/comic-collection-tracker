@@ -4,7 +4,7 @@ import BulkImport from './components/BulkImport'
 import CollectionView from './components/CollectionView'
 import MissingIssues from './components/MissingIssues'
 import DataManager from './components/DataManager'
-import DuplicateManager from './components/DuplicateManager'
+
 import BulkCoverManager from './components/BulkCoverManager'
 import Toast from './components/Toast'
 import ErrorHandlingTest from './components/ErrorHandlingTest'
@@ -352,12 +352,7 @@ function App() {
         >
           Bulk Import
         </button>
-        <button 
-          className={activeTab === 'duplicates' ? 'active' : ''}
-          onClick={() => setActiveTab('duplicates')}
-        >
-          Duplicates
-        </button>
+
         <button 
           className={activeTab === 'data' ? 'active' : ''}
           onClick={() => setActiveTab('data')}
@@ -400,12 +395,7 @@ function App() {
             existingPublishers={[...new Set(comics.map(comic => comic.publisher).filter(Boolean))]}
           />
         )}
-        {activeTab === 'duplicates' && (
-          <DuplicateManager 
-            comics={comics} 
-            onComicsUpdate={setComics}
-          />
-        )}
+
         {activeTab === 'data' && (
           <DataManager 
             comics={comics} 
