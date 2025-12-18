@@ -1,16 +1,11 @@
 import React, { useState, useRef } from 'react'
 import dataStore from '../utils/dataStore'
-import imageStorage from '../utils/imageStorage'
-import imageCache from '../utils/imageCache'
 import BulkCoverManager from './BulkCoverManager'
 import './DataManager.css'
 
 function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
   const [stats, setStats] = useState(null)
-  const [storageStats, setStorageStats] = useState(null)
-  const [cacheStats, setCacheStats] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingStorage, setIsLoadingStorage] = useState(false)
   const [showBulkCoverManager, setShowBulkCoverManager] = useState(false)
   const fileInputRef = useRef(null)
 
@@ -26,103 +21,6 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
     }
   }
 
-  const loadStorageStats = async () => {
-    try {
-      setIsLoadingStorage(true)
-      const [storage, cache, quota] = await Promise.all([
-        imageStorage.getStorageStats(),
-        imageCache.getCacheStats(),
-        imageStorage.checkStorageQuota()
-      ])
-      setStorageStats(storage)
-      setCacheStats(cache)
-      
-      // Add quota info to storage stats
-      if (quota) {
-        setStorageStats(prev => ({ ...prev, quota }))
-      }
-    } catch (error) {
-      console.error('Error loading storage stats:', error)
-    } finally {
-      setIsLoadingStorage(false)
-    }
-  }
-
-  const clearImageCache = async () => {
-    const confirmed = window.confirm(
-      'Are you sure you want to clear the image cache? This will remove all cached cover images but not the original stored images.'
-    )
-    
-    if (confirmed) {
-      try {
-        setIsLoadingStorage(true)
-        const clearedCount = await imageCache.clearCache()
-        await loadStorageStats()
-        alert(`Successfully cleared ${clearedCount} cached images.`)
-      } catch (error) {
-        console.error('Error clearing cache:', error)
-        alert('Error clearing cache. Please try again.')
-      } finally {
-        setIsLoadingStorage(false)
-      }
-    }
-  }
-
-  const clearImageStorage = async () => {
-    const confirmed = window.confirm(
-      'Are you sure you want to clear ALL stored images? This will permanently delete all cover images and cannot be undone.'
-    )
-    
-    if (confirmed) {
-      const doubleConfirmed = window.confirm(
-        'This will permanently delete all cover images from your collection. Are you absolutely sure?'
-      )
-      
-      if (doubleConfirmed) {
-        try {
-          setIsLoadingStorage(true)
-          await imageStorage.clearStorage()
-          await imageCache.clearCache()
-          await loadStorageStats()
-          alert('All image storage has been cleared.')
-        } catch (error) {
-          console.error('Error clearing storage:', error)
-          alert('Error clearing storage. Please try again.')
-        } finally {
-          setIsLoadingStorage(false)
-        }
-      }
-    }
-  }
-
-  const cleanupOldImages = async () => {
-    const confirmed = window.confirm(
-      'Clean up images older than 30 days? This will remove old cached and unused images to free up space.'
-    )
-    
-    if (confirmed) {
-      try {
-        setIsLoadingStorage(true)
-        const deletedCount = await imageStorage.cleanupOldImages()
-        await imageCache.clearCache({ olderThan: Date.now() - (30 * 24 * 60 * 60 * 1000) })
-        await loadStorageStats()
-        alert(`Successfully cleaned up ${deletedCount} old images.`)
-      } catch (error) {
-        console.error('Error cleaning up images:', error)
-        alert('Error cleaning up images. Please try again.')
-      } finally {
-        setIsLoadingStorage(false)
-      }
-    }
-  }
-
-  const formatBytes = (bytes) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
 
   const exportData = async () => {
     try {
@@ -387,7 +285,6 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
 
   React.useEffect(() => {
     loadStats()
-    loadStorageStats()
   }, [comics])
 
   return (
@@ -454,76 +351,7 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
         </div>
       )}
 
-      {(storageStats || cacheStats) && (
-        <div className="storage-section">
-          <h3>Image Storage & Cache</h3>
-          
-          {storageStats && (
-            <div className="storage-stats">
-              <h4>Storage Statistics</h4>
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <div className="stat-number">{storageStats.totalImages}</div>
-                  <div className="stat-label">Stored Images</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">{storageStats.totalSizeMB} MB</div>
-                  <div className="stat-label">Storage Used</div>
-                </div>
-                {storageStats.quota && (
-                  <>
-                    <div className="stat-card">
-                      <div className="stat-number">{formatBytes(storageStats.quota.available)}</div>
-                      <div className="stat-label">Available Space</div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-number">{storageStats.quota.usagePercentage}%</div>
-                      <div className="stat-label">Storage Used</div>
-                    </div>
-                  </>
-                )}
-              </div>
-              
-              {storageStats.quota && parseFloat(storageStats.quota.usagePercentage) > 80 && (
-                <div className="storage-warning">
-                  ⚠️ Storage usage is high ({storageStats.quota.usagePercentage}%). Consider cleaning up old images.
-                </div>
-              )}
-            </div>
-          )}
 
-          {cacheStats && (
-            <div className="cache-stats">
-              <h4>Cache Performance</h4>
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <div className="stat-number">{cacheStats.memory.items}</div>
-                  <div className="stat-label">Cached Items</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">{cacheStats.memory.sizeMB} MB</div>
-                  <div className="stat-label">Memory Used</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">{cacheStats.performance.hitRate}%</div>
-                  <div className="stat-label">Cache Hit Rate</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">{cacheStats.memory.utilization}%</div>
-                  <div className="stat-label">Cache Utilization</div>
-                </div>
-              </div>
-              
-              <div className="cache-details">
-                <p><strong>Cache Hits:</strong> {cacheStats.performance.hits}</p>
-                <p><strong>Cache Misses:</strong> {cacheStats.performance.misses}</p>
-                <p><strong>Evictions:</strong> {cacheStats.performance.evictions}</p>
-                <p><strong>Memory Limit:</strong> {cacheStats.memory.maxSizeMB} MB</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="data-actions">
         <h3>Data Management</h3>
@@ -610,52 +438,15 @@ function DataManager({ comics, onImport, onRefresh, onComicsUpdate }) {
           </p>
         </div>
 
-        <div className="action-section">
-          <h4>Storage Management</h4>
-          <div className="action-buttons">
-            <button 
-              onClick={loadStorageStats} 
-              className="refresh-btn"
-              disabled={isLoadingStorage}
-            >
-              🔄 Refresh Storage Stats
-            </button>
-            <button 
-              onClick={clearImageCache} 
-              className="cache-btn"
-              disabled={isLoadingStorage}
-            >
-              🧹 Clear Image Cache
-            </button>
-            <button 
-              onClick={cleanupOldImages} 
-              className="cleanup-btn"
-              disabled={isLoadingStorage}
-            >
-              🗂️ Cleanup Old Images
-            </button>
-          </div>
-          <p className="action-description">
-            Manage image storage and cache to optimize performance and free up space.
-          </p>
-        </div>
-
         <div className="action-section danger-section">
           <h4>Danger Zone</h4>
           <div className="action-buttons">
             <button onClick={clearAllData} className="clear-btn">
               🗑️ Clear All Data
             </button>
-            <button 
-              onClick={clearImageStorage} 
-              className="clear-btn"
-              disabled={isLoadingStorage}
-            >
-              🖼️ Clear All Images
-            </button>
           </div>
           <p className="action-description">
-            Permanently delete data from your collection. These actions cannot be undone.
+            Permanently delete data from your collection. This action cannot be undone.
           </p>
         </div>
       </div>
