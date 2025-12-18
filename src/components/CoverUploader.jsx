@@ -370,21 +370,6 @@ function CoverUploader({
 
   return (
     <div className="cover-uploader">
-      <div className="uploader-label">
-        <span>Cover Image</span>
-        {(previewUrl || currentCoverData) && (
-          <button 
-            type="button"
-            className="remove-cover-btn"
-            onClick={handleRemove}
-            disabled={disabled || isUploading}
-            title="Remove cover"
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
       <div 
         className={`upload-area ${isDragOver ? 'drag-over' : ''} ${disabled ? 'disabled' : ''} ${isUploading ? 'uploading' : ''}`}
         onDragEnter={handleDragEnter}
@@ -496,25 +481,7 @@ function CoverUploader({
         </div>
       )}
 
-      <div className="upload-info">
-        <p>Recommended: High-quality cover images work best</p>
-        <p>Images will be automatically resized and optimized</p>
-        {uploadStrategy === 'hybrid' && (
-          <p className="strategy-info">
-            📡 Hybrid mode: Uploads to server with local backup
-          </p>
-        )}
-        {uploadStrategy === 'remote' && (
-          <p className="strategy-info">
-            ☁️ Server mode: Uploads directly to server
-          </p>
-        )}
-        {uploadStrategy === 'local' && (
-          <p className="strategy-info">
-            💾 Local mode: Stores images locally only
-          </p>
-        )}
-      </div>
+
     </div>
   )
 }

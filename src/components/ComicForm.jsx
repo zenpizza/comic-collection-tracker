@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import dataStore from '../utils/dataStore'
 import CoverUploader from './CoverUploader'
 import CoverSelector from './CoverSelector'
-import ProviderStatusNotice from './ProviderStatusNotice'
+
 import CoverAPISettings from './CoverAPISettings'
-import CoverAPINotice from './CoverAPINotice'
+
 import imagePipeline from '../utils/imagePipeline'
 import coverAPIService from '../utils/coverAPIService'
 import coverMetadataService from '../utils/coverMetadataService'
@@ -433,7 +433,6 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
   return (
     <div className="comic-form">
-      <ProviderStatusNotice />
       <h2>Add Comic to Collection</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
@@ -566,7 +565,6 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
         <div className="form-group">
           <div className="cover-section">
-            <CoverAPINotice />
             <div className="cover-section-header">
               <label>Cover Image</label>
               <div className="cover-controls">
