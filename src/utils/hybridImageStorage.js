@@ -387,9 +387,12 @@ class HybridImageStorage {
 
   /**
    * Fetch image from remote
+   * Handles both direct responses and 302 redirects to S3/CloudFront
    */
   async fetchFromRemote(comicId, size) {
-    const response = await fetch(`/api/images/${comicId}?size=${size}`)
+    // The API returns 302 redirect to CloudFront for S3 images
+    // fetch() automatically follows redirects
+    const response = await fetch(`/api/images/${comicId}/${size}`)
     if (!response.ok) {
       return null
     }

@@ -19,6 +19,8 @@
     "dev:verify": "node scripts/verify-dev-setup.js",
     "env": "node scripts/show-environment.js",
     "vercel-build": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:mongodb": "node scripts/test-mongodb.js",
     "test:mongodb-simple": "node scripts/test-mongodb-simple.js",
     "test:storage": "node scripts/test-storage-operations.js",
@@ -30,6 +32,8 @@
     "test:cover-replacement-comicvine": "node scripts/test-cover-replacement-comicvine.js"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.955.0",
+    "@aws-sdk/client-s3": "^3.955.0",
     "busboy": "^1.6.0",
     "commander": "^11.1.0",
     "dotenv": "^17.2.3",
@@ -45,6 +49,8 @@
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.0.0",
     "concurrently": "^8.2.2",
-    "vite": "^7.1.10"
+    "fast-check": "^4.5.2",
+    "vite": "^7.1.10",
+    "vitest": "^4.0.16"
   }
 }
