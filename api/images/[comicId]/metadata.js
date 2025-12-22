@@ -2,10 +2,12 @@
  * Image Metadata API endpoint
  * GET /api/images/[comicId]/metadata
  * 
- * Retrieves image metadata from MongoDB storage
+ * Retrieves image metadata from MongoDB storage.
+ * Returns S3/CloudFront URLs when available.
  */
 
 import { getCoverImages } from '../../db-image-storage.js'
+import { isS3Reference, isLegacyReference } from '../../s3-serialization.js'
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -34,7 +36,7 @@ export default async function handler(req, res) {
       })
     }
     
-    console.log(`[Dynamic Route] Retrieving metadata for comic: ${comicId}`)
+    console.log(`[Metadata API] Retrieving metadata for comic: ${comicId}`)
     
     // Get the image metadata from MongoDB
     const imageData = await getCoverImages(comicId)
@@ -47,10 +49,8 @@ export default async function handler(req, res) {
     }
     
     // Set cache headers that include updatedAt in ETag to bust cache on updates
-    // Use must-revalidate to ensure browser checks with server
     res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate')
     
-    // Include updatedAt timestamp in ETag so cache is invalidated when image is replaced
     const etag = `"${comicId}-metadata-${imageData.updatedAt || Date.now()}"`
     res.setHeader('ETag', etag)
     
@@ -69,15 +69,37 @@ export default async function handler(req, res) {
       ...imageData.metadata
     }
     
-    // Add size information if available
+    // Add size information with S3 URLs when available
     if (imageData.images) {
-      // Multi-size format
       metadata.images = {}
+      
       for (const [size, sizeData] of Object.entries(imageData.images)) {
-        metadata.images[size] = {
-          size: sizeData.size || 0,
-          mimeType: sizeData.mimeType,
-          dimensions: sizeData.dimensions || { width: 0, height: 0 }
+        if (isS3Reference(sizeData)) {
+          // S3 reference - include URL and S3 metadata
+          metadata.images[size] = {
+            url: sizeData.url,
+            key: sizeData.key,
+            contentType: sizeData.contentType,
+            size: sizeData.size || 0,
+            etag: sizeData.etag,
+            uploadedAt: sizeData.uploadedAt,
+            storageType: 'S3'
+          }
+        } else if (isLegacyReference(sizeData)) {
+          // Legacy base64 reference
+          metadata.images[size] = {
+            size: sizeData.size || 0,
+            mimeType: sizeData.mimeType,
+            dimensions: sizeData.dimensions || { width: 0, height: 0 },
+            storageType: 'MongoDB'
+          }
+        } else {
+          // Unknown format
+          metadata.images[size] = {
+            size: sizeData.size || 0,
+            mimeType: sizeData.mimeType,
+            storageType: 'unknown'
+          }
         }
       }
     } else if (imageData.imageData) {
@@ -86,12 +108,21 @@ export default async function handler(req, res) {
         medium: {
           size: imageData.size || 0,
           mimeType: imageData.mimeType || 'image/jpeg',
-          dimensions: imageData.dimensions || { width: 0, height: 0 }
+          dimensions: imageData.dimensions || { width: 0, height: 0 },
+          storageType: 'MongoDB'
         }
       }
     }
     
-    console.log(`[Dynamic Route] Successfully retrieved metadata for comic: ${comicId}`)
+    // Add migration status if available
+    if (imageData.migratedAt) {
+      metadata.migratedAt = imageData.migratedAt
+    }
+    if (imageData.legacyRemoved) {
+      metadata.legacyRemoved = imageData.legacyRemoved
+    }
+    
+    console.log(`[Metadata API] Successfully retrieved metadata for comic: ${comicId}`)
     
     return res.status(200).json({
       success: true,
@@ -99,7 +130,7 @@ export default async function handler(req, res) {
     })
     
   } catch (error) {
-    console.error('[Dynamic Route] Metadata retrieval error:', error)
+    console.error('[Metadata API] Error:', error)
     return res.status(500).json({
       success: false,
       error: 'Failed to retrieve metadata',

@@ -2,10 +2,13 @@
  * Dynamic Image Retrieval API endpoint
  * GET /api/images/[comicId]/[size]
  * 
- * Retrieves images from MongoDB storage by comicId and size
+ * Retrieves images by comicId and size.
+ * - If S3 URL is available: returns 302 redirect to CloudFront URL
+ * - If legacy base64 data: serves image from MongoDB
  */
 
 import { getCoverImages } from '../../db-image-storage.js'
+import { isS3Reference, isLegacyReference } from '../../s3-serialization.js'
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -43,9 +46,9 @@ export default async function handler(req, res) {
       })
     }
     
-    console.log(`[Dynamic Route] Retrieving image for comic: ${comicId}, size: ${size}`)
+    console.log(`[Image Retrieval] Retrieving image for comic: ${comicId}, size: ${size}`)
     
-    // Get the image from MongoDB
+    // Get the image data from MongoDB
     const imageData = await getCoverImages(comicId)
     
     if (!imageData) {
@@ -59,7 +62,6 @@ export default async function handler(req, res) {
     let sizeData = null
     
     if (imageData.images && imageData.images[size]) {
-      // Multi-size format
       sizeData = imageData.images[size]
     } else if (size === 'medium' && imageData.imageData) {
       // Legacy single-size format (assume medium)
@@ -76,27 +78,47 @@ export default async function handler(req, res) {
       })
     }
     
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(sizeData.data, 'base64')
+    // Check if this is an S3 reference (has url field)
+    if (isS3Reference(sizeData)) {
+      console.log(`[Image Retrieval] Redirecting to S3/CloudFront: ${sizeData.url}`)
+      
+      // Return 302 redirect to CloudFront URL
+      res.setHeader('Location', sizeData.url)
+      res.setHeader('Cache-Control', 'public, max-age=86400') // Cache redirect for 1 day
+      return res.status(302).end()
+    }
     
-    // Generate ETag with updatedAt timestamp for cache invalidation
-    const updatedAt = imageData.updatedAt || imageData.createdAt || Date.now()
-    const etag = `"${comicId}-${size}-${new Date(updatedAt).getTime()}"`
+    // Fall back to legacy base64 path
+    if (isLegacyReference(sizeData)) {
+      console.log(`[Image Retrieval] Serving legacy base64 image`)
+      
+      // Convert base64 to buffer
+      const imageBuffer = Buffer.from(sizeData.data, 'base64')
+      
+      // Generate ETag with updatedAt timestamp for cache invalidation
+      const updatedAt = imageData.updatedAt || imageData.createdAt || Date.now()
+      const etag = `"${comicId}-${size}-${new Date(updatedAt).getTime()}"`
+      
+      // Set appropriate headers
+      res.setHeader('Content-Type', sizeData.mimeType || 'image/jpeg')
+      res.setHeader('Content-Length', imageBuffer.length)
+      res.setHeader('Cache-Control', 'public, max-age=3600') // Cache for 1 hour
+      res.setHeader('ETag', etag)
+      res.setHeader('Last-Modified', new Date(updatedAt).toUTCString())
+      
+      console.log(`[Image Retrieval] Serving ${sizeData.mimeType} image, ${imageBuffer.length} bytes`)
+      
+      return res.status(200).send(imageBuffer)
+    }
     
-    // Set appropriate headers
-    res.setHeader('Content-Type', sizeData.mimeType || 'image/jpeg')
-    res.setHeader('Content-Length', imageBuffer.length)
-    res.setHeader('Cache-Control', 'public, max-age=3600') // Cache for 1 hour (not 1 year!)
-    res.setHeader('ETag', etag)
-    res.setHeader('Last-Modified', new Date(updatedAt).toUTCString())
-    
-    console.log(`[Dynamic Route] Successfully serving ${sizeData.mimeType} image, ${imageBuffer.length} bytes`)
-    
-    // Send the image
-    return res.status(200).send(imageBuffer)
+    // Neither S3 nor legacy reference found
+    return res.status(404).json({
+      success: false,
+      error: `No valid image data found for size '${size}'`
+    })
     
   } catch (error) {
-    console.error('[Dynamic Route] Image retrieval error:', error)
+    console.error('[Image Retrieval] Error:', error)
     return res.status(500).json({
       success: false,
       error: 'Failed to retrieve image',

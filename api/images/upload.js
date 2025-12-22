@@ -2,14 +2,21 @@
  * Dedicated Image Upload API endpoint
  * POST /api/images/upload
  * 
- * Handles image uploads to MongoDB storage using multipart/form-data
+ * Handles image uploads to S3 (with MongoDB fallback) using multipart/form-data
+ * or by downloading from a provided imageUrl (ComicVine flow).
+ * 
+ * Supports two upload modes:
+ * 1. File upload: multipart/form-data with image file
+ * 2. URL download: JSON body with imageUrl field (ComicVine flow)
  */
 
 import Busboy from 'busboy'
 import sharp from 'sharp'
 import { MongoClient, ObjectId } from 'mongodb'
-import { storeCoverImages } from '../db-image-storage.js'
+import { storeCoverImages, getCoverImages } from '../db-image-storage.js'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { getS3Client } from '../s3-client.js'
+import { serializeS3Reference } from '../s3-serialization.js'
 
 let client
 let db
@@ -54,34 +61,99 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { imageBuffer, comicId, metadata } = await parseMultipartForm(req)
+    // Determine content type and parse accordingly
+    const contentType = req.headers['content-type'] || ''
+    let imageBuffer, comicId, metadata
+    
+    if (contentType.includes('multipart/form-data')) {
+      // File upload mode
+      const parsed = await parseMultipartForm(req)
+      imageBuffer = parsed.imageBuffer
+      comicId = parsed.comicId
+      metadata = parsed.metadata
+    } else if (contentType.includes('application/json')) {
+      // URL download mode (ComicVine flow)
+      const body = await parseJsonBody(req)
+      comicId = body.comicId
+      metadata = body.metadata || {}
+      
+      if (body.imageUrl) {
+        console.log(`[Upload] Downloading image from URL: ${body.imageUrl}`)
+        imageBuffer = await downloadImage(body.imageUrl)
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Unsupported content type. Use multipart/form-data or application/json.'
+      })
+    }
     
     if (!comicId || !imageBuffer) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: comicId and image file'
+        error: 'Missing required fields: comicId and image (file or imageUrl)'
       })
     }
     
     console.log(`[Upload] Starting upload for comic: ${comicId}`)
     console.log(`[Upload] Image buffer size: ${imageBuffer.length} bytes`)
     
+    // Check if this is a replacement (existing cover)
+    const existingCover = await getCoverImages(comicId)
+    const isReplacement = existingCover && existingCover.images
+    
     // Process image into size variants using sharp
-    const processedImages = await processImageSizes(imageBuffer)
+    const processedBuffers = await processImageBuffers(imageBuffer)
     
     console.log(`[Upload] Processed images:`, {
-      sizes: Object.keys(processedImages),
-      totalSize: Object.values(processedImages).reduce((sum, img) => sum + img.size, 0)
+      sizes: Object.keys(processedBuffers),
+      totalSize: Object.values(processedBuffers).reduce((sum, buf) => sum + buf.length, 0)
     })
     
-    // Store the image in MongoDB
-    const result = await storeCoverImages(comicId, processedImages, {
+    // Try S3 upload first, fall back to MongoDB
+    const s3Client = getS3Client()
+    let storageType = 'MongoDB'
+    let imageData = {}
+    
+    if (s3Client.isConfigured()) {
+      console.log(`[Upload] S3 configured, uploading to S3...`)
+      storageType = 'S3'
+      
+      // Upload all size variants to S3
+      for (const [sizeName, buffer] of Object.entries(processedBuffers)) {
+        if (sizeName === 'original') continue // Skip original for S3
+        
+        const s3Ref = await s3Client.uploadImage(comicId, sizeName, buffer, 'image/jpeg')
+        imageData[sizeName] = serializeS3Reference(s3Ref)
+        console.log(`[Upload] Uploaded ${sizeName} to S3: ${s3Ref.key}`)
+      }
+      
+      // Invalidate CloudFront cache if this is a replacement
+      if (isReplacement) {
+        console.log(`[Upload] Replacement detected, invalidating CloudFront cache...`)
+        await s3Client.invalidateCache(comicId)
+      }
+    } else {
+      console.log(`[Upload] S3 not configured, using MongoDB storage`)
+      // Fall back to MongoDB base64 storage
+      for (const [sizeName, buffer] of Object.entries(processedBuffers)) {
+        imageData[sizeName] = {
+          data: buffer.toString('base64'),
+          mimeType: 'image/jpeg',
+          size: buffer.length
+        }
+      }
+    }
+    
+    // Store references/data in MongoDB
+    const result = await storeCoverImages(comicId, imageData, {
       source: metadata?.source || 'upload',
       ...metadata,
+      storageType,
       uploadedAt: new Date().toISOString()
     })
     
-    console.log(`[Upload] Image upload successful for comic: ${comicId}, result: ${result}`)
+    console.log(`[Upload] Image upload successful for comic: ${comicId}, storage: ${storageType}`)
     
     // Update the comic's hasCover flag
     try {
@@ -89,24 +161,17 @@ export default async function handler(req, res) {
       const comicsCollection = database.collection('comics')
       
       if (ObjectId.isValid(comicId) && comicId.length === 24) {
-        // Prepare update fields
         const updateFields = {
           hasCover: true,
           coverLastUpdated: new Date().toISOString()
         }
         
-        // Add volume metadata if provided (these belong on comic record)
         if (metadata.volumeId) {
           updateFields.volumeId = metadata.volumeId
         }
         if (metadata.volumeName) {
           updateFields.volumeName = metadata.volumeName
         }
-        
-        // Note: Cover-specific metadata (coverSource, coverSourceProvider, 
-        // coverOriginalUrl, coverAttribution) is stored in cover_images collection,
-        // not on the comic record. Only hasCover, coverLastUpdated, and volume
-        // metadata belong on the comic record.
         
         await comicsCollection.updateOne(
           { _id: new ObjectId(comicId) },
@@ -116,13 +181,13 @@ export default async function handler(req, res) {
       }
     } catch (error) {
       console.warn(`[Upload] Failed to update hasCover flag:`, error.message)
-      // Don't fail the upload if this fails
     }
     
     return res.status(200).json({
       success: true,
       imageId: result,
       comicId: comicId,
+      storage: storageType,
       message: 'Image uploaded successfully'
     })
   } catch (error) {
@@ -133,6 +198,41 @@ export default async function handler(req, res) {
       details: error.message
     })
   }
+}
+
+
+/**
+ * Parse JSON body from request
+ */
+function parseJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = ''
+    req.on('data', chunk => {
+      body += chunk.toString()
+    })
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body))
+      } catch (e) {
+        reject(new Error('Invalid JSON body'))
+      }
+    })
+    req.on('error', reject)
+  })
+}
+
+/**
+ * Download image from URL
+ */
+async function downloadImage(url) {
+  const response = await fetch(url)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
+  }
+  
+  const arrayBuffer = await response.arrayBuffer()
+  return Buffer.from(arrayBuffer)
 }
 
 /**
@@ -187,16 +287,17 @@ function parseMultipartForm(req) {
 }
 
 /**
- * Process image into multiple sizes using sharp
+ * Process image into multiple size buffers using sharp
+ * Returns raw buffers (not base64) for S3 upload
  */
-async function processImageSizes(imageBuffer) {
+async function processImageBuffers(imageBuffer) {
   const sizes = {
     thumbnail: { width: 150, height: 225 },
     medium: { width: 300, height: 450 },
-    full: { width: 300, height: 450 }
+    full: { width: 600, height: 900 }
   }
   
-  const processedImages = {}
+  const processedBuffers = {}
   
   // Process each size
   for (const [sizeName, dimensions] of Object.entries(sizes)) {
@@ -208,11 +309,7 @@ async function processImageSizes(imageBuffer) {
       .jpeg({ quality: 85 })
       .toBuffer()
     
-    processedImages[sizeName] = {
-      data: processed.toString('base64'),
-      mimeType: 'image/jpeg',
-      size: processed.length
-    }
+    processedBuffers[sizeName] = processed
   }
   
   // Also store original (but compressed)
@@ -220,11 +317,7 @@ async function processImageSizes(imageBuffer) {
     .jpeg({ quality: 90 })
     .toBuffer()
   
-  processedImages.original = {
-    data: original.toString('base64'),
-    mimeType: 'image/jpeg',
-    size: original.length
-  }
+  processedBuffers.original = original
   
-  return processedImages
+  return processedBuffers
 }

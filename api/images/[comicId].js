@@ -11,6 +11,8 @@
 import { MongoClient, ObjectId } from 'mongodb'
 import { getCoverImages, deleteCoverImages } from '../db-image-storage.js'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { getS3Client } from '../s3-client.js'
+import { isS3Reference } from '../s3-serialization.js'
 
 let client
 let db
@@ -246,13 +248,47 @@ async function handleDeleteImage(req, res, comicId) {
   try {
     console.log(`[Image API] Deleting image for comic: ${comicId}`)
     
-    const result = await deleteCoverImages(comicId)
+    // First, get the existing cover to check if it has S3 references
+    const existingCover = await getCoverImages(comicId)
     
-    if (!result) {
+    if (!existingCover) {
       return res.status(404).json({
         success: false,
         error: 'Image not found'
       })
+    }
+    
+    // Check if any size has S3 references
+    const hasS3Refs = existingCover.images && 
+      Object.values(existingCover.images).some(img => isS3Reference(img))
+    
+    // Delete from S3 first (if configured and has S3 refs)
+    const s3Client = getS3Client()
+    let s3DeleteSuccess = true
+    
+    if (s3Client.isConfigured() && hasS3Refs) {
+      try {
+        console.log(`[Image API] Deleting S3 objects for comic: ${comicId}`)
+        await s3Client.deleteImages(comicId)
+        console.log(`[Image API] S3 deletion successful for comic: ${comicId}`)
+      } catch (s3Error) {
+        // Log but continue - S3 deletion is idempotent
+        console.warn(`[Image API] S3 deletion warning for comic ${comicId}:`, s3Error.message)
+        s3DeleteSuccess = false
+      }
+    }
+    
+    // Delete from MongoDB
+    let mongoDeleteSuccess = false
+    try {
+      mongoDeleteSuccess = await deleteCoverImages(comicId)
+    } catch (mongoError) {
+      // If MongoDB deletion fails after S3 deletion, log orphaned keys
+      if (s3DeleteSuccess && hasS3Refs) {
+        console.error(`[Image API] ORPHANED S3 KEYS - MongoDB deletion failed after S3 deletion for comic: ${comicId}`)
+        console.error(`[Image API] Orphaned keys: covers/${comicId}/*`)
+      }
+      throw mongoError
     }
     
     // Update the comic's hasCover flag
