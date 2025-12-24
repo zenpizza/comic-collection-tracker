@@ -307,6 +307,110 @@ describe('S3 Image Storage Property Tests', () => {
       expect(hasCompleteS3References(undefined)).toBe(false)
     })
   })
+
+  describe('API Image Handler Reference Detection', () => {
+    /**
+     * Tests for the reference detection logic used in both API endpoints:
+     * - /api/images/[comicId]/[size].js (path params)
+     * - /api/images/[comicId].js?size=xxx (query params)
+     * 
+     * Both endpoints must correctly identify S3 vs legacy references to decide
+     * whether to redirect to CloudFront or serve base64 from MongoDB.
+     */
+    
+    it('should detect S3 references from real MongoDB document structure', () => {
+      // This matches the actual structure stored in MongoDB after S3 upload
+      const realS3Reference = {
+        key: 'preview/covers/694b48c8a163e2bfa1f13916/thumbnail.jpg',
+        url: 'https://d1o0pmmy3po4ug.cloudfront.net/preview/covers/694b48c8a163e2bfa1f13916/thumbnail.jpg',
+        contentType: 'image/jpeg',
+        size: 18482,
+        uploadedAt: '2025-12-24T01:58:33.461Z',
+        etag: '0d1e0279f9f6f62e4218bbe6fd327122'
+      }
+      
+      expect(isS3Reference(realS3Reference)).toBe(true)
+      expect(isLegacyReference(realS3Reference)).toBe(false)
+    })
+
+    it('should detect legacy references from real MongoDB document structure', () => {
+      // This matches the actual structure stored in MongoDB for legacy base64 images
+      const realLegacyReference = {
+        data: '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRof...',
+        mimeType: 'image/jpeg',
+        size: 45000
+      }
+      
+      expect(isLegacyReference(realLegacyReference)).toBe(true)
+      expect(isS3Reference(realLegacyReference)).toBe(false)
+    })
+
+    it('should handle migrated documents with both S3 and legacy data', () => {
+      // During migration, documents may have both S3 refs AND legacy base64 data
+      const migratedReference = {
+        // Legacy data (preserved during migration)
+        data: '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRof...',
+        mimeType: 'image/jpeg',
+        // S3 references (added during migration)
+        key: 'preview/covers/694b48c8a163e2bfa1f13916/thumbnail.jpg',
+        url: 'https://d1o0pmmy3po4ug.cloudfront.net/preview/covers/694b48c8a163e2bfa1f13916/thumbnail.jpg',
+        contentType: 'image/jpeg',
+        size: 18482,
+        uploadedAt: '2025-12-24T01:58:33.461Z',
+        etag: '0d1e0279f9f6f62e4218bbe6fd327122'
+      }
+      
+      // S3 reference should take priority (redirect to CloudFront)
+      expect(isS3Reference(migratedReference)).toBe(true)
+      
+      // Legacy data is still present but S3 takes priority
+      expect(migratedReference.data).toBeDefined()
+    })
+
+    it('should not treat S3 reference without url as valid S3 reference', () => {
+      // Edge case: partial S3 reference (e.g., corrupted data)
+      const partialS3Reference = {
+        key: 'preview/covers/694b48c8a163e2bfa1f13916/thumbnail.jpg',
+        contentType: 'image/jpeg',
+        size: 18482,
+        // Missing url field!
+      }
+      
+      expect(isS3Reference(partialS3Reference)).toBeFalsy()
+    })
+
+    it('should not treat legacy reference without data as valid legacy reference', () => {
+      // Edge case: partial legacy reference
+      const partialLegacyReference = {
+        mimeType: 'image/jpeg',
+        size: 45000,
+        // Missing data field!
+      }
+      
+      expect(isLegacyReference(partialLegacyReference)).toBeFalsy()
+    })
+
+    it('should handle empty url string as invalid S3 reference', () => {
+      const emptyUrlReference = {
+        key: 'preview/covers/test/thumbnail.jpg',
+        url: '',  // Empty string
+        contentType: 'image/jpeg',
+        size: 18482,
+      }
+      
+      expect(isS3Reference(emptyUrlReference)).toBeFalsy()
+    })
+
+    it('should handle empty data string as invalid legacy reference', () => {
+      const emptyDataReference = {
+        data: '',  // Empty string
+        mimeType: 'image/jpeg',
+        size: 0,
+      }
+      
+      expect(isLegacyReference(emptyDataReference)).toBeFalsy()
+    })
+  })
 })
 
 
