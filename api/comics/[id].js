@@ -7,7 +7,9 @@
 
 import { MongoClient, ObjectId } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
-import { deleteCoverImages } from '../db-image-storage.js'
+import { getCoverImages, deleteCoverImages } from '../db-image-storage.js'
+import { getS3Client } from '../s3-client.js'
+import { isS3Reference } from '../s3-serialization.js'
 
 let client
 let db
@@ -205,10 +207,27 @@ async function handleDeleteComic(req, res, id) {
       })
     }
     
-    // Delete associated cover images first
+    // Delete associated cover images first (from S3 and MongoDB)
     try {
+      // Check if comic has S3 images
+      const coverData = await getCoverImages(id)
+      const hasS3Refs = coverData?.images && 
+        Object.values(coverData.images).some(img => isS3Reference(img))
+      
+      // Delete from S3 first if configured and has S3 refs
+      const s3Client = getS3Client()
+      if (s3Client.isConfigured() && hasS3Refs) {
+        try {
+          await s3Client.deleteImages(id)
+          console.log(`[Comic Delete] Deleted S3 images for comic: ${id}`)
+        } catch (s3Error) {
+          console.warn(`[Comic Delete] S3 deletion warning for comic ${id}:`, s3Error.message)
+        }
+      }
+      
+      // Delete from MongoDB
       await deleteCoverImages(id)
-      console.log(`Deleted cover images for comic: ${id}`)
+      console.log(`[Comic Delete] Deleted cover images from MongoDB for comic: ${id}`)
     } catch (imageError) {
       console.warn(`Failed to delete cover images for comic ${id}:`, imageError)
       // Continue with comic deletion even if image deletion fails
