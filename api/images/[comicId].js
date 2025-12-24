@@ -12,7 +12,7 @@ import { MongoClient, ObjectId } from 'mongodb'
 import { getCoverImages, deleteCoverImages } from '../db-image-storage.js'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { getS3Client } from '../s3-client.js'
-import { isS3Reference } from '../s3-serialization.js'
+import { isS3Reference, isLegacyReference } from '../s3-serialization.js'
 
 let client
 let db
@@ -133,19 +133,38 @@ async function handleGetImage(req, res, comicId, size) {
       })
     }
     
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(sizeData.data, 'base64')
+    // Check if this is an S3 reference (has url field) - redirect to CloudFront
+    if (isS3Reference(sizeData)) {
+      console.log(`[Image API] Redirecting to S3/CloudFront: ${sizeData.url}`)
+      res.setHeader('Location', sizeData.url)
+      res.setHeader('Cache-Control', 'public, max-age=86400') // Cache redirect for 1 day
+      return res.status(302).end()
+    }
     
-    // Set appropriate headers
-    res.setHeader('Content-Type', sizeData.mimeType || 'image/jpeg')
-    res.setHeader('Content-Length', imageBuffer.length)
-    res.setHeader('Cache-Control', 'public, max-age=31536000') // Cache for 1 year
-    res.setHeader('ETag', `"${comicId}-${size}"`)
+    // Fall back to legacy base64 path
+    if (isLegacyReference(sizeData)) {
+      console.log(`[Image API] Serving legacy base64 image`)
+      
+      // Convert base64 to buffer
+      const imageBuffer = Buffer.from(sizeData.data, 'base64')
+      
+      // Set appropriate headers
+      res.setHeader('Content-Type', sizeData.mimeType || 'image/jpeg')
+      res.setHeader('Content-Length', imageBuffer.length)
+      res.setHeader('Cache-Control', 'public, max-age=31536000') // Cache for 1 year
+      res.setHeader('ETag', `"${comicId}-${size}"`)
+      
+      console.log(`[Image API] Successfully serving ${sizeData.mimeType} image, ${imageBuffer.length} bytes`)
+      
+      // Send the image
+      return res.status(200).send(imageBuffer)
+    }
     
-    console.log(`[Image API] Successfully serving ${sizeData.mimeType} image, ${imageBuffer.length} bytes`)
-    
-    // Send the image
-    return res.status(200).send(imageBuffer)
+    // Neither S3 nor legacy reference found
+    return res.status(404).json({
+      success: false,
+      error: `No valid image data found for size '${size}'`
+    })
     
   } catch (error) {
     console.error('[Image API] Image retrieval error:', error)
