@@ -1,4 +1,5 @@
 # Implementation Plan
+<!-- Trigger redeploy after fixing AWS_S3_PUBLIC_BASE_URL env var -->
 
 - [x] 1. Set up S3 client module and configuration
   - [x] 1.1 Create S3 client module with AWS SDK v3
