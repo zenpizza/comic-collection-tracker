@@ -40,6 +40,7 @@
 - [MONGODB_ID_MIGRATION_GUIDE.md](./migrations/MONGODB_ID_MIGRATION_GUIDE.md) - MongoDB ObjectId migration guide
 - [OBJECTID_MIGRATION_COMPLETE.md](./migrations/OBJECTID_MIGRATION_COMPLETE.md) - ObjectId migration completion report
 - [DATABASE_MIGRATION_CLEANUP.md](./migrations/DATABASE_MIGRATION_CLEANUP.md) - Database cleanup after migration
+- [S3_MIGRATION_PLAN.md](./S3_MIGRATION_PLAN.md) - S3 image storage migration (COMPLETE)
 
 ## Bug Fixes & Improvements
 

@@ -85,16 +85,36 @@ Connects to Atlas Production Database
 comic-collection-tracke.aufn0iz.mongodb.net
 │
 ├── comic-collection (Production)
-│   ├── comics (241 documents)
-│   └── cover_images (246 documents)
-│   └── ~330 MB
+│   ├── comics (~350 documents)
+│   └── cover_images (~350 documents, S3 refs only)
+│   └── ~75 KB (metadata only, images in S3)
 │
 ├── comic-collection-preview (Preview)
 │   ├── comics (test data)
 │   └── cover_images (test data)
-│   └── ~minimal MB
+│   └── ~minimal
 │
-└── Total: ~330 MB / 512 MB (64.6% used)
+└── Total: < 1 MB (images migrated to S3)
+```
+
+### Image Storage (S3 + CloudFront)
+
+```
+S3 Bucket: comic-collection-covers
+│
+├── production/covers/{comicId}/
+│   ├── thumbnail.jpg
+│   ├── medium.jpg
+│   └── full.jpg
+│
+├── preview/covers/{comicId}/
+│   └── (same structure)
+│
+└── development/covers/{comicId}/
+    └── (same structure)
+
+CloudFront Distribution: d1o0pmmy3po4ug.cloudfront.net
+└── Serves images with CORS headers
 ```
 
 ### Local Docker MongoDB
@@ -177,30 +197,21 @@ console.log(env.mongoUri);      // Auto-configured
 
 ## Storage Management
 
-### Current Usage (Dec 2025)
+### Current Architecture (Dec 2025)
 
-- **Production**: 330 MB (241 comics, 246 covers)
-- **Preview**: ~0 MB (empty, test data only)
-- **Local**: Unlimited (Docker volume)
-- **Total Atlas**: 330 MB / 512 MB free tier
+- **MongoDB**: Metadata only (~75 KB for ~350 comics)
+- **S3**: All cover images (3 sizes per comic)
+- **CloudFront**: CDN delivery for images
+- **Local**: Docker MongoDB for development
 
-### Scaling Strategy
+### Image Storage
 
-**When approaching 512 MB limit:**
+Images are stored in S3 with environment-specific prefixes:
+- `production/covers/{comicId}/{size}.jpg`
+- `preview/covers/{comicId}/{size}.jpg`
+- `development/covers/{comicId}/{size}.jpg`
 
-1. **Optimize images** (Current: ~675 KB per comic)
-   - Reduce thumbnail quality
-   - Use more aggressive compression
-   - Consider external CDN for covers
-
-2. **Upgrade Atlas tier**
-   - M2 Shared: 2 GB for $9/month
-   - M10 Dedicated: 10 GB for $57/month
-
-3. **Separate preview cluster**
-   - Create second free M0 cluster
-   - Full isolation
-   - 512 MB for each environment
+MongoDB stores S3 references (key, url, contentType, size) instead of base64 data.
 
 ## Security Considerations
 

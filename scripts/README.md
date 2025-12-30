@@ -1,8 +1,13 @@
 # Test Scripts
 
-This directory contains test scripts for the Comic Collection Tracker application.
+This directory contains test and utility scripts for the Comic Collection Tracker application.
 
-## Available Test Scripts
+## Available Scripts
+
+### S3 Image Storage
+- `migrate-images-to-s3.js` - Migrate images from MongoDB base64 to S3
+- `cleanup-legacy-images.js` - Remove base64 data after S3 migration
+- `verify-s3-setup.js` - Verify S3/CloudFront configuration
 
 ### MongoDB Tests
 - `test-mongodb.js` - Test MongoDB connection and operations
@@ -20,9 +25,23 @@ This directory contains test scripts for the Comic Collection Tracker applicatio
 - `test-cover-replacement.js` - Test cover replacement functionality
 - `test-cover-replacement-comicvine.js` - Test ComicVine cover replacement
 
-## Running Tests
+## Running Scripts
 
-Run tests using npm scripts:
+### S3 Migration (one-time)
+```bash
+# Verify S3 setup
+node scripts/verify-s3-setup.js
+
+# Migrate images (dry run first)
+node scripts/migrate-images-to-s3.js --dry-run
+node scripts/migrate-images-to-s3.js
+
+# Cleanup legacy data (dry run first)
+node scripts/cleanup-legacy-images.js --dry-run
+node scripts/cleanup-legacy-images.js
+```
+
+### Tests
 ```bash
 # MongoDB tests
 npm run test:mongodb
@@ -47,6 +66,14 @@ npm run test:cover-replacement-comicvine
 Required for tests:
 - `MONGODB_URI` - MongoDB Atlas connection string
 - `COMICVINE_API_KEY` - ComicVine API key (for cover search tests)
+
+Required for S3 scripts:
+- `AWS_REGION` - AWS region (e.g., us-east-1)
+- `AWS_S3_BUCKET` - S3 bucket name
+- `AWS_S3_PUBLIC_BASE_URL` - CloudFront distribution URL
+- `AWS_ACCESS_KEY_ID` - AWS access key
+- `AWS_SECRET_ACCESS_KEY` - AWS secret key
+- `AWS_S3_KEY_PREFIX` - Environment prefix (production/preview/development)
 
 ## Notes
 
