@@ -1,5 +1,13 @@
 # Migration Plan: Move Image Storage from MongoDB (base64) to Amazon S3
 
+> **STATUS: COMPLETE** (December 2025)
+> - 352 images migrated from MongoDB base64 to S3
+> - Legacy base64 data cleaned up from MongoDB
+> - Images served via CloudFront CDN
+> - See `.kiro/specs/s3-image-storage/` for implementation details
+
+---
+
 Goal:
 - Store binary image data in S3 and keep MongoDB as the source of truth for comic metadata and S3 references.
 - Preserve offline capabilities and hybrid behavior.

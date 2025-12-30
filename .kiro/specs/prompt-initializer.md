@@ -6,7 +6,8 @@ This is a Comic Collection Tracker application with the following key features:
 
 - **Frontend**: React + Vite
 - **Backend**: Express.js + MongoDB Atlas
-- **Storage**: MongoDB for comics and cover images
+- **Image Storage**: Amazon S3 + CloudFront CDN
+- **Metadata Storage**: MongoDB Atlas
 - **Deployment**: Vercel (Pro version - unlimited endpoints)
 
 ## Key Features Implemented
@@ -15,9 +16,11 @@ This is a Comic Collection Tracker application with the following key features:
 Individual document-per-comic in MongoDB (migrated from single-document model)
 
 ### Cover Images
-- MongoDB storage with base64 encoding
+- **S3 Storage**: Images stored in S3 with CloudFront CDN delivery
+- **MongoDB References**: S3 keys and URLs stored in MongoDB (no base64)
 - Three sizes: thumbnail (150x225), medium (300x450), full (300x450)
-- Unidirectional data flow: MongoDB → Cache → UI
+- Environment prefixes: `production/`, `preview/`, `development/`
+- Unidirectional data flow: S3/CloudFront → Cache → UI
 - ImageURLService with LRU memory cache + IndexedDB cache
 - Safe-by-default blob URL management
 - Use `hasCover` field to check cover status (NOT coverUrl - that field was removed)
@@ -92,6 +95,17 @@ Located in `scripts/` directory for database maintenance:
 All scripts use `.env.local` for MongoDB Atlas connection.
 
 ## Recent Features & Bug Fixes (Dec 2025)
+
+### S3 Image Storage Migration (Dec 2025)
+- **Feature**: Migrated cover images from MongoDB base64 to S3 + CloudFront
+- **Implementation**: 
+  - S3 bucket with environment prefixes (production/, preview/, development/)
+  - CloudFront CDN for fast image delivery
+  - MongoDB stores S3 references (key, url, contentType, size)
+  - API returns 302 redirects to CloudFront URLs
+- **Impact**: Reduced MongoDB storage from ~330MB to ~75KB, faster image loading
+- **Files**: `api/s3-client.js`, `api/s3-serialization.js`, `api/images/upload.js`
+- **Details**: See `docs/S3_MIGRATION_PLAN.md` and `.kiro/specs/s3-image-storage/`
 
 ### Bulk Import Cover Prompt (Dec 8, 2025)
 - **Feature**: Post-import workflow for fetching covers
