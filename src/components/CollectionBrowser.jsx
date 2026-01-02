@@ -245,9 +245,6 @@ function CollectionBrowser({ comics }) {
                 <>
                   {selectedComic && (
                     <div className="collection-browser__metadata">
-                      <div className="collection-browser__metadata-title">
-                        {selectedComic.series} #{selectedComic.issueNumber}
-                      </div>
                       <div className="collection-browser__metadata-list">
                         {selectedComic.publisher && (
                           <div className="collection-browser__metadata-item">
