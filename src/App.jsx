@@ -4,6 +4,7 @@ import BulkImport from './components/BulkImport'
 import CollectionView from './components/CollectionView'
 import MissingIssues from './components/MissingIssues'
 import DataManager from './components/DataManager'
+import CollectionBrowser from './components/CollectionBrowser'
 
 import BulkCoverManager from './components/BulkCoverManager'
 import Toast from './components/Toast'
@@ -335,6 +336,12 @@ function App() {
           My Collection
         </button>
         <button 
+          className={activeTab === 'browse' ? 'active' : ''}
+          onClick={() => setActiveTab('browse')}
+        >
+          Browse Titles
+        </button>
+        <button 
           className={activeTab === 'missing' ? 'active' : ''}
           onClick={() => setActiveTab('missing')}
         >
@@ -376,6 +383,9 @@ function App() {
             recentlyImportedIds={recentlyImportedIds}
             onClearRecentFilter={handleClearRecentFilter}
           />
+        )}
+        {activeTab === 'browse' && (
+          <CollectionBrowser comics={comics} />
         )}
         {activeTab === 'missing' && (
           <MissingIssues comics={comics} />
