@@ -217,6 +217,11 @@ function CollectionBrowser({ comics }) {
         )}
         {seriesData.map((series) => {
           const isOpen = series.seriesName === openSeries
+          const selectedItem = series.items.find(
+            (item) => item.key === selectedIssueKey
+          )
+          const selectedComic =
+            selectedItem?.type === 'comic' ? selectedItem.comic : null
 
           return (
             <div
@@ -237,6 +242,42 @@ function CollectionBrowser({ comics }) {
               </button>
 
               {isOpen && (
+                <>
+                  {selectedComic && (
+                    <div className="collection-browser__metadata">
+                      <div className="collection-browser__metadata-list">
+                        {selectedComic.publisher && (
+                          <div className="collection-browser__metadata-item">
+                            <span className="collection-browser__metadata-label">Publisher</span>
+                            <span className="collection-browser__metadata-value">
+                              {selectedComic.publisher}
+                            </span>
+                          </div>
+                        )}
+                        {selectedComic.year && (
+                          <div className="collection-browser__metadata-item">
+                            <span className="collection-browser__metadata-label">Year</span>
+                            <span className="collection-browser__metadata-value">
+                              {selectedComic.year}
+                            </span>
+                          </div>
+                        )}
+                        {selectedComic.variant && (
+                          <div className="collection-browser__metadata-item">
+                            <span className="collection-browser__metadata-label">Variant</span>
+                            <span className="collection-browser__metadata-value">
+                              {selectedComic.variant}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {selectedComic.notes && (
+                        <div className="collection-browser__metadata-notes">
+                          {selectedComic.notes}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 <div
                   className="collection-browser__scroller"
                   ref={(node) => {
@@ -290,6 +331,7 @@ function CollectionBrowser({ comics }) {
                     })}
                   </div>
                 </div>
+                </>
               )}
             </div>
           )
