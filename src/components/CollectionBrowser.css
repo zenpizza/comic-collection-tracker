@@ -64,6 +64,7 @@
   padding: 16px 20px 24px;
   cursor: grab;
   scroll-snap-type: x mandatory;
+  touch-action: pan-y;
 }
 
 .collection-browser__scroller.is-dragging {

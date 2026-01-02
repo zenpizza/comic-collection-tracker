@@ -108,6 +108,7 @@ function CollectionBrowser({ comics }) {
   const seriesData = useMemo(() => buildSeriesData(comics), [comics])
   const [openSeries, setOpenSeries] = useState(seriesData[0]?.seriesName ?? null)
   const [selectedIssueKey, setSelectedIssueKey] = useState(null)
+  const scrollerRefs = useRef(new Map())
   const dragState = useRef({
     isDragging: false,
     startX: 0,
@@ -121,6 +122,31 @@ function CollectionBrowser({ comics }) {
       setSelectedIssueKey(getInitialSelection(activeSeries.items))
     }
   }, [openSeries, seriesData])
+
+  useEffect(() => {
+    if (!openSeries || !selectedIssueKey) {
+      return
+    }
+
+    const scroller = scrollerRefs.current.get(openSeries)
+    if (!scroller) {
+      return
+    }
+
+    const selected = scroller.querySelector(
+      `[data-issue-key="${selectedIssueKey}"]`
+    )
+
+    if (selected) {
+      requestAnimationFrame(() => {
+        selected.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center'
+        })
+      })
+    }
+  }, [openSeries, selectedIssueKey])
 
   const handleSeriesToggle = (seriesName) => {
     setOpenSeries(seriesName)
@@ -213,6 +239,13 @@ function CollectionBrowser({ comics }) {
               {isOpen && (
                 <div
                   className="collection-browser__scroller"
+                  ref={(node) => {
+                    if (node) {
+                      scrollerRefs.current.set(series.seriesName, node)
+                    } else {
+                      scrollerRefs.current.delete(series.seriesName)
+                    }
+                  }}
                   onPointerDown={handlePointerDown}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
@@ -226,6 +259,7 @@ function CollectionBrowser({ comics }) {
                         <button
                           key={item.key}
                           type="button"
+                          data-issue-key={item.key}
                           className={`collection-browser__issue ${
                             isSelected ? 'is-selected' : ''
                           } ${item.type === 'missing' ? 'is-missing' : ''}`}
