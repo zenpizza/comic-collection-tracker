@@ -164,6 +164,12 @@
   cursor: pointer;
 }
 
+.collection-view button.comic-cover {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
 .collection-view .comic-info {
   min-width: 0;
   flex: 1;

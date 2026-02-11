@@ -126,12 +126,14 @@ function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
+            aria-label="Search comics"
           />
           
           <select 
             value={sortBy} 
             onChange={(e) => setSortBy(e.target.value)}
             className="sort-select"
+            aria-label="Sort comics"
           >
             <option value="series">Sort by Series</option>
             <option value="issue">Sort by Issue #</option>
@@ -144,6 +146,7 @@ function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, 
             value={coverFilter} 
             onChange={(e) => setCoverFilter(e.target.value)}
             className="filter-select"
+            aria-label="Filter by cover status"
           >
             <option value="all">All Comics</option>
             <option value="with-covers">With Covers</option>
@@ -183,10 +186,12 @@ function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, 
               <div className="comics-grid">
                 {seriesComics.map(comic => (
                   <div key={comic.id} className="comic-card">
-                    <div 
+                    <button
+                      type="button"
                       className="comic-cover clickable"
                       onClick={() => handleComicClick(comic)}
-                      title="Click to view details"
+                      title="View comic details"
+                      aria-label={`View details for ${comic.series} issue ${comic.issueNumber}`}
                     >
                       <CoverImage
                         comicId={comic.id}
@@ -194,7 +199,7 @@ function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, 
                         size={viewMode === 'grid' ? 'medium' : 'thumbnail'}
                         lazy={true}
                       />
-                    </div>
+                    </button>
                     
                     <div className="comic-info">
                       <div className="issue-number">#{comic.issueNumber}</div>
@@ -216,6 +221,7 @@ function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, 
                       <button 
                         onClick={() => handleComicClick(comic)}
                         className="edit-btn"
+                        aria-label={`Edit ${comic.series} issue ${comic.issueNumber}`}
                         title="Edit comic"
                       >
                         ✏️
@@ -223,6 +229,7 @@ function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, 
                       <button 
                         onClick={() => handleRemove(comic)}
                         className="remove-btn"
+                        aria-label={`Remove ${comic.series} issue ${comic.issueNumber}`}
                         title="Remove from collection"
                       >
                         ×
