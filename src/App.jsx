@@ -4,6 +4,7 @@ import BulkImport from './components/BulkImport'
 import CollectionView from './components/CollectionView'
 import MissingIssues from './components/MissingIssues'
 import DataManager from './components/DataManager'
+import CollectionBrowser from './components/CollectionBrowser'
 
 import BulkCoverManager from './components/BulkCoverManager'
 import Toast from './components/Toast'
@@ -335,6 +336,12 @@ function App() {
               My Collection
             </button>
             <button
+              className={`segmented-tabs__button ${activeTab === 'browse' ? 'active is-active' : ''}`}
+              onClick={() => setActiveTab('browse')}
+            >
+              Browse Titles
+            </button>
+            <button
               className={`segmented-tabs__button ${activeTab === 'missing' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('missing')}
             >
@@ -352,7 +359,6 @@ function App() {
             >
               Bulk Import
             </button>
-
             <button
               className={`segmented-tabs__button ${activeTab === 'data' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('data')}
@@ -377,6 +383,9 @@ function App() {
                 onClearRecentFilter={handleClearRecentFilter}
               />
             )}
+            {activeTab === 'browse' && (
+              <CollectionBrowser comics={comics} />
+            )}
             {activeTab === 'missing' && (
               <MissingIssues comics={comics} />
             )}
@@ -395,7 +404,6 @@ function App() {
                 existingPublishers={[...new Set(comics.map(comic => comic.publisher).filter(Boolean))]}
               />
             )}
-
             {activeTab === 'data' && (
               <DataManager
                 comics={comics}

@@ -222,10 +222,24 @@ class ComicDataStore {
 
   // Check for duplicate comics
   checkForDuplicate(newComic, existingComics) {
-    return existingComics.find(existing => 
-      existing.series.toLowerCase() === newComic.series.toLowerCase() &&
-      existing.issueNumber.toString().toLowerCase() === newComic.issueNumber.toString().toLowerCase()
-    )
+    const normalizeField = value => String(value ?? '').toLowerCase()
+    const newSeries = normalizeField(newComic?.series)
+    const newIssueNumber = normalizeField(newComic?.issueNumber)
+
+    if (!newSeries || !newIssueNumber) {
+      return null
+    }
+
+    return existingComics.find(existing => {
+      const existingSeries = normalizeField(existing?.series)
+      const existingIssueNumber = normalizeField(existing?.issueNumber)
+
+      if (!existingSeries || !existingIssueNumber) {
+        return false
+      }
+
+      return existingSeries === newSeries && existingIssueNumber === newIssueNumber
+    })
   }
 
   // Find all duplicates in a collection
