@@ -17,6 +17,33 @@
   color: var(--ink-secondary);
 }
 
+.data-manager .data-status {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.data-manager .data-status--info {
+  background: #e8f3f8;
+  border-color: #b9d3e0;
+  color: #245669;
+}
+
+.data-manager .data-status--success {
+  background: #eff8f3;
+  border-color: #c7decf;
+  color: #1f5b44;
+}
+
+.data-manager .data-status--error {
+  background: #fff4f2;
+  border-color: #efb7ab;
+  color: #7c2516;
+}
+
 .data-manager .stats-section {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
@@ -154,6 +181,11 @@
   font-weight: 700;
   cursor: pointer;
   padding: 0 14px;
+  transition: background-color var(--dur-fast) var(--ease-standard), opacity var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard);
+}
+
+.data-manager .action-buttons button:active {
+  transform: translateY(1px);
 }
 
 .data-manager .export-btn {
@@ -216,6 +248,12 @@
 .data-manager .danger-section h4,
 .data-manager .danger-section .action-description {
   color: #7c2516;
+}
+
+.data-manager button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 @media (max-width: 768px) {

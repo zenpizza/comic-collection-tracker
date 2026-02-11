@@ -6,6 +6,8 @@ import './DataManager.css'
 function DataManager({ comics, onImport, onRefresh }) {
   const [stats, setStats] = useState(null)
   const [showBulkCoverManager, setShowBulkCoverManager] = useState(false)
+  const [busyAction, setBusyAction] = useState(null)
+  const [statusMessage, setStatusMessage] = useState(null)
   const fileInputRef = useRef(null)
 
   const loadStats = () => {
@@ -20,6 +22,8 @@ function DataManager({ comics, onImport, onRefresh }) {
 
   const exportData = async () => {
     try {
+      setBusyAction('export')
+      setStatusMessage({ type: 'info', message: 'Preparing export file...' })
       const data = await dataStore.exportData()
       if (data) {
         const blob = new Blob([JSON.stringify(data, null, 2)], { 
@@ -33,6 +37,7 @@ function DataManager({ comics, onImport, onRefresh }) {
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
+        setStatusMessage({ type: 'success', message: 'Collection exported successfully.' })
       } else {
         // Fallback to current comics data
         const fallbackData = {
@@ -52,10 +57,14 @@ function DataManager({ comics, onImport, onRefresh }) {
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
+        setStatusMessage({ type: 'success', message: 'Collection exported successfully.' })
       }
     } catch (error) {
       console.error('Error exporting data:', error)
+      setStatusMessage({ type: 'error', message: 'Error exporting data. Please try again.' })
       alert('Error exporting data. Please try again.')
+    } finally {
+      setBusyAction(null)
     }
   }
 
@@ -64,11 +73,14 @@ function DataManager({ comics, onImport, onRefresh }) {
     if (!file) return
 
     try {
+      setBusyAction('import')
+      setStatusMessage({ type: 'info', message: `Importing data from ${file.name}...` })
       const text = await file.text()
       const importedData = JSON.parse(text)
       
       const comics = await dataStore.importData(importedData)
       onImport(comics)
+      setStatusMessage({ type: 'success', message: `Imported ${comics.length} comics successfully.` })
       alert(`Successfully imported ${comics.length} comics!`)
       
       // Reset file input
@@ -77,7 +89,10 @@ function DataManager({ comics, onImport, onRefresh }) {
       }
     } catch (error) {
       console.error('Error importing data:', error)
+      setStatusMessage({ type: 'error', message: 'Error importing data. Please check the file format and try again.' })
       alert('Error importing data. Please check the file format and try again.')
+    } finally {
+      setBusyAction(null)
     }
   }
 
@@ -94,8 +109,27 @@ function DataManager({ comics, onImport, onRefresh }) {
       
       if (doubleConfirmed) {
         onImport([])
+        setStatusMessage({ type: 'success', message: 'All collection data has been cleared.' })
         alert('All data has been cleared.')
       }
+    }
+  }
+
+  const handleRefresh = async () => {
+    if (!onRefresh) {
+      return
+    }
+
+    try {
+      setBusyAction('refresh')
+      setStatusMessage({ type: 'info', message: 'Refreshing collection data...' })
+      await onRefresh()
+      setStatusMessage({ type: 'success', message: 'Collection data refreshed.' })
+    } catch (error) {
+      console.error('Error refreshing data:', error)
+      setStatusMessage({ type: 'error', message: 'Unable to refresh data. Please try again.' })
+    } finally {
+      setBusyAction(null)
     }
   }
 
@@ -108,6 +142,11 @@ function DataManager({ comics, onImport, onRefresh }) {
       <div className="data-header">
         <h2>Data Manager</h2>
         <p>Backup, restore, and manage your comic collection data</p>
+        {statusMessage && (
+          <div className={`data-status data-status--${statusMessage.type}`} role="status" aria-live="polite">
+            {statusMessage.message}
+          </div>
+        )}
       </div>
 
       {stats && (
@@ -175,11 +214,11 @@ function DataManager({ comics, onImport, onRefresh }) {
         <div className="action-section">
           <h4>Backup & Export</h4>
           <div className="action-buttons">
-            <button onClick={exportData} className="export-btn">
-              📥 Export Collection
+            <button onClick={exportData} className="export-btn" disabled={!!busyAction}>
+              {busyAction === 'export' ? 'Exporting...' : '📥 Export Collection'}
             </button>
-            <button onClick={onRefresh} className="refresh-btn">
-              🔄 Refresh Data
+            <button onClick={handleRefresh} className="refresh-btn" disabled={!!busyAction}>
+              {busyAction === 'refresh' ? 'Refreshing...' : '🔄 Refresh Data'}
             </button>
           </div>
           <p className="action-description">
@@ -200,8 +239,9 @@ function DataManager({ comics, onImport, onRefresh }) {
             <button 
               onClick={() => fileInputRef.current?.click()} 
               className="import-btn"
+              disabled={!!busyAction}
             >
-              📤 Import Collection
+              {busyAction === 'import' ? 'Importing...' : '📤 Import Collection'}
             </button>
           </div>
           <p className="action-description">
@@ -215,6 +255,7 @@ function DataManager({ comics, onImport, onRefresh }) {
             <button 
               onClick={() => setShowBulkCoverManager(true)} 
               className="bulk-cover-btn"
+              disabled={!!busyAction}
             >
               🖼️ Bulk Cover Operations
             </button>
@@ -227,7 +268,7 @@ function DataManager({ comics, onImport, onRefresh }) {
         <div className="action-section danger-section">
           <h4>Danger Zone</h4>
           <div className="action-buttons">
-            <button onClick={clearAllData} className="clear-btn">
+            <button onClick={clearAllData} className="clear-btn" disabled={!!busyAction}>
               🗑️ Clear All Data
             </button>
           </div>
