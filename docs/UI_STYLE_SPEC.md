@@ -2,6 +2,21 @@
 
 This document translates the design plan into implementation-ready UI specs.
 
+## Status
+This spec is now in production with minor implementation adjustments documented below.
+
+## As-Built Adjustments
+- Shared utility classes are namespaced as `ui-*` to prevent CSS collisions.
+  - Implemented examples: `.ui-btn`, `.ui-input`, `.ui-card`, `.ui-badge`
+- Main navigation includes `Browse Titles` tab in addition to redesign tab styling.
+- Accessibility enhancements were added beyond the original styling scope:
+  - ARIA tab/tabpanel semantics and keyboard tablist navigation
+  - Live region announcements for save/toast states
+  - Keyboard-accessible cover interaction buttons and accessible action labels
+- Interaction polish enhancements were added:
+  - Async loading/disabled states for bulk import, data operations, and comic submit
+  - Inline info/success/error feedback surfaces for long-running actions
+
 ## 1) Global Design Tokens (Exact CSS Block)
 Add this near the top of `/Users/daviddana/Developer/comic-collection-tracker/src/App.css`.
 
@@ -132,13 +147,13 @@ Use these classes as the shared baseline across tabs. Keep view-specific classes
 - `.ui-card__body`: content container
 
 ### 2.3 Buttons
-- `.btn`: base button
-- `.btn--primary`: primary call-to-action
-- `.btn--secondary`: secondary action
-- `.btn--ghost`: low-emphasis action
-- `.btn--danger`: destructive action
-- `.btn--icon`: square icon button (min 40x40)
-- `.btn:disabled`: reduced opacity, no hover transform
+- `.ui-btn`: base button
+- `.ui-btn--primary`: primary call-to-action
+- `.ui-btn--secondary`: secondary action
+- `.ui-btn--ghost`: low-emphasis action
+- `.ui-btn--danger`: destructive action
+- `.ui-btn--icon`: square icon button (min 40x40)
+- `.ui-btn:disabled`: reduced opacity, no hover transform
 
 Behavior contract:
 - Hover: background or border shift only; no dramatic movement
@@ -148,18 +163,18 @@ Behavior contract:
 ### 2.4 Inputs/Fields
 - `.field`: wrapper for label + control + message
 - `.field__label`: label text
-- `.input`: text/select/textarea base
-- `.input--error`: error border + soft background tint
-- `.input--success`: success border + soft background tint
+- `.ui-input`: text/select/textarea base
+- `.ui-input--error`: error border + soft background tint
+- `.ui-input--success`: success border + soft background tint
 - `.field__hint`: helper text
 - `.field__error`: error message
 
 ### 2.5 Badges/Status
-- `.badge`: base badge
-- `.badge--status`: neutral status badge
-- `.badge--success | --warning | --error | --info`
-- `.badge--milestone`: highlighted issue marker
-- `.badge--count`: numeric count badge
+- `.ui-badge`: base badge
+- `.ui-badge--status`: neutral status badge
+- `.ui-badge--success | --warning | --error | --info`
+- `.ui-badge--milestone`: highlighted issue marker
+- `.ui-badge--count`: numeric count badge
 
 ### 2.6 Lists and Toolbars
 - `.toolbar`: row for search/sort/filter/actions
@@ -217,37 +232,37 @@ Behavior contract:
 Capture on same data set and viewport sizes: `375x812`, `768x1024`, `1280x800`.
 
 ### App Shell
-- [ ] Before: top-level app view on Collection tab.
-- [ ] After: top-level app view on Collection tab.
-- [ ] Verify: title hierarchy, save chip visibility, segmented tab clarity.
+- [x] Before: top-level app view on Collection tab.
+- [x] After: top-level app view on Collection tab.
+- [x] Verify: title hierarchy, save chip visibility, segmented tab clarity.
 
 ### Collection View
-- [ ] Before/After: full collection with at least 2 series groups.
-- [ ] Before/After: hover/focus state on comic actions.
-- [ ] Verify: toolbar wrapping, cover readability, metadata hierarchy.
+- [x] Before/After: full collection with at least 2 series groups.
+- [x] Before/After: hover/focus state on comic actions.
+- [x] Verify: toolbar wrapping, cover readability, metadata hierarchy.
 
 ### Add Comic
-- [ ] Before/After: blank form.
-- [ ] Before/After: validation error state.
-- [ ] Verify: field spacing, section clarity, CTA prominence.
+- [x] Before/After: blank form.
+- [x] Before/After: validation error state.
+- [x] Verify: field spacing, section clarity, CTA prominence.
 
 ### Missing Issues
-- [ ] Before/After: populated issue grid including owned/missing/milestone.
-- [ ] Verify: state distinction remains obvious in grayscale-resistant contexts.
+- [x] Before/After: populated issue grid including owned/missing/milestone.
+- [x] Verify: state distinction remains obvious in grayscale-resistant contexts.
 
 ### Bulk Import
-- [ ] Before/After: text import input with parsed preview list.
-- [ ] Verify: preview scanability and duplicate visibility.
+- [x] Before/After: text import input with parsed preview list.
+- [x] Verify: preview scanability and duplicate visibility.
 
 ### Data Manager
-- [ ] Before/After: stats + action sections.
-- [ ] Before/After: danger zone.
-- [ ] Verify: destructive actions visually isolated and unmistakable.
+- [x] Before/After: stats + action sections.
+- [x] Before/After: danger zone.
+- [x] Verify: destructive actions visually isolated and unmistakable.
 
 ### Accessibility Snapshots
-- [ ] Focus ring visible on: tab button, input, primary button, icon button.
-- [ ] Reduced motion check (system setting enabled).
-- [ ] Contrast spot-check for status badges and muted text.
+- [x] Focus ring visible on: tab button, input, primary button, icon button.
+- [x] Reduced motion check (system setting enabled).
+- [x] Contrast spot-check for status badges and muted text.
 
 ## 6) Acceptance Criteria for Implementation
 - Shared class contracts are applied across all five main views.
