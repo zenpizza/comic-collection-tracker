@@ -66,6 +66,12 @@
   background: #f8f4ea;
 }
 
+button.cover-gallery__cover {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+}
+
 .cover-gallery__info {
   flex: 1;
   min-height: 0;

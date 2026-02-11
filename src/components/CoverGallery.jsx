@@ -180,11 +180,12 @@ function CoverGallery({
           >
             {visibleItems.map((comic) => (
               <div key={comic.id} className="cover-gallery__item">
-                <div 
+                <button
+                  type="button"
                   className="cover-gallery__cover"
                   onClick={() => handleCoverClick(comic)}
-                  style={{ cursor: 'pointer' }}
-                  title="Click to view details"
+                  title="View comic details"
+                  aria-label={`View details for ${comic.series} issue ${comic.issueNumber}`}
                 >
                   <CoverImage
                     comicId={comic.id}
@@ -192,7 +193,7 @@ function CoverGallery({
                     size="medium"
                     lazy={true}
                   />
-                </div>
+                </button>
                 
                 <div className="cover-gallery__info">
                   <div className="cover-gallery__series" title={comic.series}>
@@ -218,6 +219,7 @@ function CoverGallery({
                   <button 
                     onClick={() => handleEdit(comic)}
                     className="cover-gallery__action-btn cover-gallery__edit-btn"
+                    aria-label={`Edit ${comic.series} issue ${comic.issueNumber}`}
                     title="Edit comic"
                   >
                     ✏️
@@ -225,6 +227,7 @@ function CoverGallery({
                   <button 
                     onClick={() => handleRemove(comic)}
                     className="cover-gallery__action-btn cover-gallery__remove-btn"
+                    aria-label={`Remove ${comic.series} issue ${comic.issueNumber}`}
                     title="Remove from collection"
                   >
                     ×
