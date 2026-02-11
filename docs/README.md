@@ -26,6 +26,8 @@
 
 - [COMIC_COVERS_COMPLETE.md](./features/COMIC_COVERS_COMPLETE.md) - Complete cover management system
 - [FEATURE_COMIC_DETAIL_VIEW.md](./features/FEATURE_COMIC_DETAIL_VIEW.md) - Comic detail view feature documentation
+- [DESIGN_UPDATE_PLAN.md](./DESIGN_UPDATE_PLAN.md) - UI redesign plan and shipped status
+- [UI_STYLE_SPEC.md](./UI_STYLE_SPEC.md) - Style system spec and as-built implementation notes
 
 ## Cover Search System
 

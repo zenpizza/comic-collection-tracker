@@ -1,5 +1,26 @@
 # Design Update Plan: Comic Collection Tracker
 
+## Status
+Completed and shipped to production (Phase 1 redesign + Phase 2 accessibility + Phase 3 interaction polish).
+
+### Delivered
+- Modern app shell with tokenized design system.
+- Full visual refresh across Collection, Add Comic, Missing Issues, Bulk Import, Data Manager.
+- Updated Cover Gallery and View Mode Toggle styling.
+- Accessibility hardening:
+  - Keyboard-accessible tablist behavior (`ArrowLeft`, `ArrowRight`, `Home`, `End`)
+  - ARIA tab/tabpanel semantics
+  - Live regions for save/toast status
+  - Accessible labels for icon-only action buttons
+  - Keyboard-accessible cover click targets
+- Interaction polish:
+  - Async action states for import/export/refresh/submit
+  - Inline status feedback in Bulk Import and Data Manager
+  - Disabled-state protection for long-running actions
+
+### Notes
+- The original plan was implementation-focused. Production implementation uses namespaced shared utility classes (`ui-*`) to avoid global CSS collisions.
+
 ## Objective
 Modernize the UI from a dated Web 2.0 look to a contemporary, premium collector dashboard while preserving all current functionality.
 
@@ -115,8 +136,8 @@ Define and apply shared style contracts before view-specific styling:
 - Accessibility checks pass for contrast, focus, and keyboard flow.
 
 ## QA Checklist
-- Validate at 375px, 768px, and 1280px widths.
-- Verify all interactive states: default, hover, focus, active, disabled.
-- Verify save status visibility in all tabs.
-- Validate legibility of metadata and badges in dense views.
-- Confirm danger actions are visually and behaviorally distinct.
+- [x] Validate at 375px, 768px, and 1280px widths.
+- [x] Verify all interactive states: default, hover, focus, active, disabled.
+- [x] Verify save status visibility in all tabs.
+- [x] Validate legibility of metadata and badges in dense views.
+- [x] Confirm danger actions are visually and behaviorally distinct.
