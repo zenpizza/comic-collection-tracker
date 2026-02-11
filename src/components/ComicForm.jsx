@@ -34,6 +34,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
   const [showCoverSelector, setShowCoverSelector] = useState(false)
   const [autoFetchEnabled, setAutoFetchEnabled] = useState(true)
   const [showAPISettings, setShowAPISettings] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Check for duplicates when series or issue number changes
   useEffect(() => {
@@ -70,7 +71,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
     }
   }, [formData.series, formData.issueNumber, formData.publisher, autoFetchEnabled, coverData, isSearchingCovers])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.series || !formData.issueNumber) {
       alert('Please fill in at least the series and issue number')
@@ -96,21 +97,26 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       }
     }
 
-    onAdd(comicData)
+    try {
+      setIsSubmitting(true)
+      await onAdd(comicData)
 
-    // Reset form
-    setFormData({
-      series: '',
-      issueNumber: '',
-      publisher: '',
-      year: '',
-      variant: '',
-      notes: '',
-      volumeId: '',
-      volumeName: ''
-    })
-    setCoverData(null)
-    setCoverError(null)
+      // Reset form
+      setFormData({
+        series: '',
+        issueNumber: '',
+        publisher: '',
+        year: '',
+        variant: '',
+        notes: '',
+        volumeId: '',
+        volumeName: ''
+      })
+      setCoverData(null)
+      setCoverError(null)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleChange = (e) => {
@@ -582,7 +588,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
                       type="button"
                       onClick={handleManualCoverSearch}
                       className="search-covers-btn"
-                      disabled={isSearchingCovers || isProcessingCover}
+                      disabled={isSearchingCovers || isProcessingCover || isSubmitting}
                     >
                       {isSearchingCovers ? 'Searching...' : '🔍 Search Covers'}
                     </button>
@@ -591,6 +597,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
                       onClick={() => setShowAPISettings(true)}
                       className="settings-btn"
                       title="Configure API Settings"
+                      disabled={isSubmitting}
                     >
                       ⚙️
                     </button>
@@ -660,8 +667,8 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
           </div>
         )}
 
-        <button type="submit" className="submit-btn">
-          Add to Collection
+        <button type="submit" className="submit-btn" disabled={isSubmitting || isSearchingCovers || isProcessingCover}>
+          {isSubmitting ? 'Saving Comic...' : 'Add to Collection'}
         </button>
       </form>
 

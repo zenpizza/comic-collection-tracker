@@ -17,6 +17,39 @@
   color: var(--ink-secondary);
 }
 
+.bulk-import .bulk-feedback {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.bulk-import .bulk-feedback--info {
+  background: #e8f3f8;
+  border-color: #b9d3e0;
+  color: #245669;
+}
+
+.bulk-import .bulk-feedback--success {
+  background: #eff8f3;
+  border-color: #c7decf;
+  color: #1f5b44;
+}
+
+.bulk-import .bulk-feedback--warning {
+  background: #fff2d2;
+  border-color: #f0d48f;
+  color: #7b5b07;
+}
+
+.bulk-import .bulk-feedback--error {
+  background: #fff4f2;
+  border-color: #efb7ab;
+  color: #7c2516;
+}
+
 .bulk-import .import-methods {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
@@ -46,6 +79,7 @@
   font-weight: 700;
   padding: 0 14px;
   cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), opacity var(--dur-fast) var(--ease-standard);
 }
 
 .bulk-import .method-tabs button:hover {
@@ -137,6 +171,7 @@
   font-weight: 700;
   cursor: pointer;
   padding: 0 14px;
+  transition: background-color var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard), opacity var(--dur-fast) var(--ease-standard);
 }
 
 .bulk-import .preview-btn {
@@ -146,6 +181,12 @@
 
 .bulk-import .preview-btn:hover {
   background: var(--accent-primary-strong);
+}
+
+.bulk-import .preview-btn:active,
+.bulk-import .import-btn:active,
+.bulk-import .clear-btn:active {
+  transform: translateY(1px);
 }
 
 .bulk-import .preview-section {
@@ -258,10 +299,17 @@
   font-size: 1.1rem;
   cursor: pointer;
   flex-shrink: 0;
+  transition: background-color var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard), opacity var(--dur-fast) var(--ease-standard);
 }
 
 .bulk-import .remove-preview-btn:hover {
   background: #f4cdc5;
+}
+
+.bulk-import button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .bulk-import .bulk-series-container,

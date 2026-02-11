@@ -17,6 +17,8 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
   const [filteredSeries, setFilteredSeries] = useState([])
   const [showPublisherDropdown, setShowPublisherDropdown] = useState(false)
   const [filteredPublishers, setFilteredPublishers] = useState([])
+  const [isImporting, setIsImporting] = useState(false)
+  const [feedback, setFeedback] = useState(null)
 
   const parseTextInput = () => {
     const lines = textInput.trim().split('\n').filter(line => line.trim())
@@ -31,6 +33,18 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
     }
 
     setPreviewComics(comics)
+    if (comics.length === 0) {
+      setFeedback({
+        type: 'warning',
+        message: 'No valid comics found in the input. Check the format examples and try again.'
+      })
+      return
+    }
+
+    setFeedback({
+      type: 'info',
+      message: `Preview generated for ${comics.length} comic${comics.length === 1 ? '' : 's'}.`
+    })
   }
 
   const parseComicLine = (line) => {
@@ -109,28 +123,54 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
     }
 
     setPreviewComics(comics)
+    if (comics.length === 0) {
+      setFeedback({
+        type: 'warning',
+        message: 'No comics were generated for this range. Check start/end/skip values.'
+      })
+      return
+    }
+
+    setFeedback({
+      type: 'info',
+      message: `Preview generated for ${comics.length} comic${comics.length === 1 ? '' : 's'}.`
+    })
   }
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (previewComics.length === 0) {
       alert('No comics to import. Please generate a preview first.')
       return
     }
 
-    const importCount = previewComics.length
-    onAddMultiple(previewComics, importCount)
-    
-    // Reset form
-    setTextInput('')
-    setRangeData({
-      series: '',
-      publisher: '',
-      year: '',
-      startIssue: '',
-      endIssue: '',
-      skipIssues: ''
-    })
-    setPreviewComics([])
+    try {
+      setIsImporting(true)
+      setFeedback({ type: 'info', message: `Importing ${previewComics.length} comics...` })
+
+      const importCount = previewComics.length
+      await onAddMultiple(previewComics, importCount)
+
+      // Reset form
+      setTextInput('')
+      setRangeData({
+        series: '',
+        publisher: '',
+        year: '',
+        startIssue: '',
+        endIssue: '',
+        skipIssues: ''
+      })
+      setPreviewComics([])
+      setFeedback({ type: 'success', message: `Import request submitted for ${importCount} comics.` })
+    } catch (error) {
+      console.error('Bulk import failed:', error)
+      setFeedback({
+        type: 'error',
+        message: `Import failed: ${error.message || 'Unknown error'}`
+      })
+    } finally {
+      setIsImporting(false)
+    }
   }
 
   const removeFromPreview = (index) => {
@@ -209,6 +249,11 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
       <div className="bulk-header">
         <h2>Bulk Import Comics</h2>
         <p>Add multiple comics to your collection at once</p>
+        {feedback && (
+          <div className={`bulk-feedback bulk-feedback--${feedback.type}`} role="status" aria-live="polite">
+            {feedback.message}
+          </div>
+        )}
       </div>
 
       <div className="import-methods">
@@ -216,12 +261,14 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
           <button 
             className={importMethod === 'text' ? 'active' : ''}
             onClick={() => setImportMethod('text')}
+            disabled={isImporting}
           >
             Text Import
           </button>
           <button 
             className={importMethod === 'range' ? 'active' : ''}
             onClick={() => setImportMethod('range')}
+            disabled={isImporting}
           >
             Issue Range
           </button>
@@ -250,7 +297,7 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
                 className="text-input"
               />
             </div>
-            <button onClick={parseTextInput} className="preview-btn">
+            <button onClick={parseTextInput} className="preview-btn" disabled={isImporting}>
               Generate Preview
             </button>
           </div>
@@ -373,7 +420,7 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
               </div>
             </div>
 
-            <button onClick={generateRangeComics} className="preview-btn">
+            <button onClick={generateRangeComics} className="preview-btn" disabled={isImporting}>
               Generate Preview
             </button>
           </div>
@@ -385,11 +432,11 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
           <div className="preview-header">
             <h3>Preview ({previewComics.length} comics)</h3>
             <div className="preview-actions">
-              <button onClick={() => setPreviewComics([])} className="clear-btn">
+              <button onClick={() => setPreviewComics([])} className="clear-btn" disabled={isImporting}>
                 Clear All
               </button>
-              <button onClick={handleImport} className="import-btn">
-                Import All Comics
+              <button onClick={handleImport} className="import-btn" disabled={isImporting}>
+                {isImporting ? 'Importing...' : 'Import All Comics'}
               </button>
             </div>
           </div>
@@ -412,6 +459,7 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
                   onClick={() => removeFromPreview(index)}
                   className="remove-preview-btn"
                   title="Remove from import"
+                  disabled={isImporting}
                 >
                   ×
                 </button>

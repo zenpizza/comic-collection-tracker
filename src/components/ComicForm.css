@@ -67,6 +67,14 @@
   transform: translateY(1px);
 }
 
+.comic-form .submit-btn:disabled,
+.comic-form .search-covers-btn:disabled,
+.comic-form .settings-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .comic-form .series-input-container,
 .comic-form .publisher-input-container {
   position: relative;
