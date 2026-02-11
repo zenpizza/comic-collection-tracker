@@ -13,7 +13,7 @@ function Toast({ message, action, onActionClick, onClose, duration = 5000 }) {
   }, [duration, onClose])
 
   return (
-    <div className="toast">
+    <div className="toast" role="status" aria-live="polite">
       <span className="toast-message">{message}</span>
       {action && onActionClick && (
         <button className="toast-action" onClick={onActionClick}>
@@ -21,7 +21,7 @@ function Toast({ message, action, onActionClick, onClose, duration = 5000 }) {
         </button>
       )}
       {onClose && (
-        <button className="toast-close" onClick={onClose}>
+        <button className="toast-close" onClick={onClose} aria-label="Dismiss notification">
           ×
         </button>
       )}

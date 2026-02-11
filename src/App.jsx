@@ -49,6 +49,7 @@ class AppErrorBoundary extends React.Component {
 }
 
 function App() {
+  const tabOrder = ['collection', 'browse', 'missing', 'add', 'bulk', 'data', 'test-errors']
   const [comics, setComics] = useState([])
   const [activeTab, setActiveTab] = useState('collection')
   const [isLoading, setIsLoading] = useState(true)
@@ -314,13 +315,38 @@ function App() {
     setRecentlyImportedCount(0)
   }
 
+  const handleTabKeyDown = (event, currentTab) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      return
+    }
+
+    event.preventDefault()
+    const currentIndex = tabOrder.indexOf(currentTab)
+    let targetTab = currentTab
+
+    if (event.key === 'ArrowRight') {
+      targetTab = tabOrder[(currentIndex + 1) % tabOrder.length]
+    } else if (event.key === 'ArrowLeft') {
+      targetTab = tabOrder[(currentIndex - 1 + tabOrder.length) % tabOrder.length]
+    } else if (event.key === 'Home') {
+      targetTab = tabOrder[0]
+    } else if (event.key === 'End') {
+      targetTab = tabOrder[tabOrder.length - 1]
+    }
+
+    setActiveTab(targetTab)
+    requestAnimationFrame(() => {
+      document.getElementById(`tab-${targetTab}`)?.focus()
+    })
+  }
+
   return (
     <AppErrorBoundary>
       <ErrorFeedbackProvider errorHandler={coverErrorHandler}>
         <div className="app app-shell">
           <header className="app-header app-topbar">
             <h1 className="app-title">Comic Collection Tracker</h1>
-            <div className="save-status">
+            <div className="save-status" role="status" aria-live="polite">
               {isLoading && <span className="status loading save-chip save-chip--loading">Loading...</span>}
               {!isLoading && saveStatus === 'saving' && <span className="status saving save-chip save-chip--saving">Saving...</span>}
               {!isLoading && saveStatus === 'saved' && <span className="status saved save-chip save-chip--saved">Saved</span>}
@@ -328,52 +354,87 @@ function App() {
             </div>
           </header>
 
-          <nav className="tab-nav segmented-tabs">
+          <nav className="tab-nav segmented-tabs" role="tablist" aria-label="Main sections">
             <button
+              id="tab-collection"
+              role="tab"
+              aria-selected={activeTab === 'collection'}
+              aria-controls="panel-collection"
               className={`segmented-tabs__button ${activeTab === 'collection' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('collection')}
+              onKeyDown={(event) => handleTabKeyDown(event, 'collection')}
             >
               My Collection
             </button>
             <button
+              id="tab-browse"
+              role="tab"
+              aria-selected={activeTab === 'browse'}
+              aria-controls="panel-browse"
               className={`segmented-tabs__button ${activeTab === 'browse' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('browse')}
+              onKeyDown={(event) => handleTabKeyDown(event, 'browse')}
             >
               Browse Titles
             </button>
             <button
+              id="tab-missing"
+              role="tab"
+              aria-selected={activeTab === 'missing'}
+              aria-controls="panel-missing"
               className={`segmented-tabs__button ${activeTab === 'missing' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('missing')}
+              onKeyDown={(event) => handleTabKeyDown(event, 'missing')}
             >
               Missing Issues
             </button>
             <button
+              id="tab-add"
+              role="tab"
+              aria-selected={activeTab === 'add'}
+              aria-controls="panel-add"
               className={`segmented-tabs__button ${activeTab === 'add' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('add')}
+              onKeyDown={(event) => handleTabKeyDown(event, 'add')}
             >
               Add Comic
             </button>
             <button
+              id="tab-bulk"
+              role="tab"
+              aria-selected={activeTab === 'bulk'}
+              aria-controls="panel-bulk"
               className={`segmented-tabs__button ${activeTab === 'bulk' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('bulk')}
+              onKeyDown={(event) => handleTabKeyDown(event, 'bulk')}
             >
               Bulk Import
             </button>
             <button
+              id="tab-data"
+              role="tab"
+              aria-selected={activeTab === 'data'}
+              aria-controls="panel-data"
               className={`segmented-tabs__button ${activeTab === 'data' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('data')}
+              onKeyDown={(event) => handleTabKeyDown(event, 'data')}
             >
               Data Manager
             </button>
             <button
+              id="tab-test-errors"
+              role="tab"
+              aria-selected={activeTab === 'test-errors'}
+              aria-controls="panel-test-errors"
               className={`segmented-tabs__button ${activeTab === 'test-errors' ? 'active is-active' : ''}`}
               onClick={() => setActiveTab('test-errors')}
+              onKeyDown={(event) => handleTabKeyDown(event, 'test-errors')}
             >
               Test Errors
             </button>
           </nav>
 
-          <main className="app-main view-panel">
+          <main className="app-main view-panel" role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
             {activeTab === 'collection' && (
               <CollectionView
                 comics={comics}
