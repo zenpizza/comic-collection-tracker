@@ -316,98 +316,98 @@ function App() {
   return (
     <AppErrorBoundary>
       <ErrorFeedbackProvider errorHandler={coverErrorHandler}>
-        <div className="app">
-        <header className="app-header">
-          <h1>📚 Comic Collection</h1>
-          <div className="save-status">
-            {isLoading && <span className="status loading">Loading...</span>}
-            {!isLoading && saveStatus === 'saving' && <span className="status saving">Saving...</span>}
-            {!isLoading && saveStatus === 'saved' && <span className="status saved">✓ Saved</span>}
-            {!isLoading && saveStatus === 'error' && <span className="status error">⚠ Save Error</span>}
-          </div>
-        </header>
+        <div className="app app-shell">
+          <header className="app-header app-topbar">
+            <h1 className="app-title">Comic Collection Tracker</h1>
+            <div className="save-status">
+              {isLoading && <span className="status loading save-chip save-chip--loading">Loading...</span>}
+              {!isLoading && saveStatus === 'saving' && <span className="status saving save-chip save-chip--saving">Saving...</span>}
+              {!isLoading && saveStatus === 'saved' && <span className="status saved save-chip save-chip--saved">Saved</span>}
+              {!isLoading && saveStatus === 'error' && <span className="status error save-chip save-chip--error">Save Error</span>}
+            </div>
+          </header>
 
-      <nav className="tab-nav">
-        <button 
-          className={activeTab === 'collection' ? 'active' : ''}
-          onClick={() => setActiveTab('collection')}
-        >
-          My Collection
-        </button>
-        <button 
-          className={activeTab === 'missing' ? 'active' : ''}
-          onClick={() => setActiveTab('missing')}
-        >
-          Missing Issues
-        </button>
-        <button 
-          className={activeTab === 'add' ? 'active' : ''}
-          onClick={() => setActiveTab('add')}
-        >
-          Add Comic
-        </button>
-        <button 
-          className={activeTab === 'bulk' ? 'active' : ''}
-          onClick={() => setActiveTab('bulk')}
-        >
-          Bulk Import
-        </button>
+          <nav className="tab-nav segmented-tabs">
+            <button
+              className={`segmented-tabs__button ${activeTab === 'collection' ? 'active is-active' : ''}`}
+              onClick={() => setActiveTab('collection')}
+            >
+              My Collection
+            </button>
+            <button
+              className={`segmented-tabs__button ${activeTab === 'missing' ? 'active is-active' : ''}`}
+              onClick={() => setActiveTab('missing')}
+            >
+              Missing Issues
+            </button>
+            <button
+              className={`segmented-tabs__button ${activeTab === 'add' ? 'active is-active' : ''}`}
+              onClick={() => setActiveTab('add')}
+            >
+              Add Comic
+            </button>
+            <button
+              className={`segmented-tabs__button ${activeTab === 'bulk' ? 'active is-active' : ''}`}
+              onClick={() => setActiveTab('bulk')}
+            >
+              Bulk Import
+            </button>
 
-        <button 
-          className={activeTab === 'data' ? 'active' : ''}
-          onClick={() => setActiveTab('data')}
-        >
-          Data Manager
-        </button>
-        <button 
-          className={activeTab === 'test-errors' ? 'active' : ''}
-          onClick={() => setActiveTab('test-errors')}
-        >
-          🧪 Test Errors
-        </button>
-      </nav>
+            <button
+              className={`segmented-tabs__button ${activeTab === 'data' ? 'active is-active' : ''}`}
+              onClick={() => setActiveTab('data')}
+            >
+              Data Manager
+            </button>
+            <button
+              className={`segmented-tabs__button ${activeTab === 'test-errors' ? 'active is-active' : ''}`}
+              onClick={() => setActiveTab('test-errors')}
+            >
+              Test Errors
+            </button>
+          </nav>
 
-      <main className="app-main">
-        {activeTab === 'collection' && (
-          <CollectionView 
-            comics={comics} 
-            onRemove={removeComic} 
-            onEdit={editComic}
-            recentlyImportedIds={recentlyImportedIds}
-            onClearRecentFilter={handleClearRecentFilter}
-          />
-        )}
-        {activeTab === 'missing' && (
-          <MissingIssues comics={comics} />
-        )}
-        {activeTab === 'add' && (
-          <ComicForm 
-            onAdd={addComic} 
-            existingSeries={getSortedUniqueSeriesNames(comics)} 
-            existingPublishers={[...new Set(comics.map(comic => comic.publisher).filter(Boolean))]}
-            existingComics={comics}
-          />
-        )}
-        {activeTab === 'bulk' && (
-          <BulkImport 
-            onAddMultiple={addMultipleComics} 
-            existingSeries={getSortedUniqueSeriesNames(comics)} 
-            existingPublishers={[...new Set(comics.map(comic => comic.publisher).filter(Boolean))]}
-          />
-        )}
+          <main className="app-main view-panel">
+            {activeTab === 'collection' && (
+              <CollectionView
+                comics={comics}
+                onRemove={removeComic}
+                onEdit={editComic}
+                recentlyImportedIds={recentlyImportedIds}
+                onClearRecentFilter={handleClearRecentFilter}
+              />
+            )}
+            {activeTab === 'missing' && (
+              <MissingIssues comics={comics} />
+            )}
+            {activeTab === 'add' && (
+              <ComicForm
+                onAdd={addComic}
+                existingSeries={getSortedUniqueSeriesNames(comics)}
+                existingPublishers={[...new Set(comics.map(comic => comic.publisher).filter(Boolean))]}
+                existingComics={comics}
+              />
+            )}
+            {activeTab === 'bulk' && (
+              <BulkImport
+                onAddMultiple={addMultipleComics}
+                existingSeries={getSortedUniqueSeriesNames(comics)}
+                existingPublishers={[...new Set(comics.map(comic => comic.publisher).filter(Boolean))]}
+              />
+            )}
 
-        {activeTab === 'data' && (
-          <DataManager 
-            comics={comics} 
-            onImport={setComics}
-            onRefresh={loadComicsFromStore}
-            onComicsUpdate={setComics}
-          />
-        )}
-        {activeTab === 'test-errors' && (
-          <ErrorHandlingTest />
-        )}
-      </main>
+            {activeTab === 'data' && (
+              <DataManager
+                comics={comics}
+                onImport={setComics}
+                onRefresh={loadComicsFromStore}
+                onComicsUpdate={setComics}
+              />
+            )}
+            {activeTab === 'test-errors' && (
+              <ErrorHandlingTest />
+            )}
+          </main>
 
       {/* Bulk Cover Manager Modal - can be opened from bulk import */}
       <BulkCoverManager
@@ -428,7 +428,7 @@ function App() {
           duration={8000}
         />
       )}
-    </div>
+        </div>
       </ErrorFeedbackProvider>
     </AppErrorBoundary>
   )
