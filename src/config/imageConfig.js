@@ -8,7 +8,7 @@ export const IMAGE_CONFIG = {
   sizes: {
     thumbnail: { width: 150, height: 225 },
     medium: { width: 300, height: 450 },
-    full: { width: 800, height: 1200 }
+    full: { width: 600, height: 900 }
   },
 
   // File size limits
