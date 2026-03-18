@@ -41,7 +41,7 @@ function BulkCoverManager({ comics, isVisible, onClose, onCoverUpdate, initialFi
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase()
         const matchesSearch = comic.series.toLowerCase().includes(searchLower) ||
-          comic.publisher.toLowerCase().includes(searchLower) ||
+          comic.publisher?.toLowerCase().includes(searchLower) ||
           comic.issueNumber.toString().includes(searchLower)
         if (!matchesSearch) return false
       }
