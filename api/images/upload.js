@@ -231,25 +231,39 @@ const ALLOWED_IMAGE_DOMAINS = [
  * Download image from URL
  */
 async function downloadImage(url) {
-  let urlObj
-  try {
-    urlObj = new URL(url)
-  } catch {
-    throw new Error('Invalid image URL')
+  const MAX_REDIRECTS = 5
+  let currentUrl = url
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    let urlObj
+    try {
+      urlObj = new URL(currentUrl)
+    } catch {
+      throw new Error('Invalid image URL')
+    }
+
+    if (!ALLOWED_IMAGE_DOMAINS.includes(urlObj.hostname)) {
+      throw new Error(`Image domain not allowed: ${urlObj.hostname}`)
+    }
+
+    const response = await fetch(currentUrl, { redirect: 'manual' })
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      if (!location) throw new Error('Redirect with no Location header')
+      currentUrl = new URL(location, currentUrl).toString()
+      continue
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    return Buffer.from(arrayBuffer)
   }
 
-  if (!ALLOWED_IMAGE_DOMAINS.includes(urlObj.hostname)) {
-    throw new Error(`Image domain not allowed: ${urlObj.hostname}`)
-  }
-
-  const response = await fetch(url, { redirect: 'error' })
-  
-  if (!response.ok) {
-    throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
-  }
-  
-  const arrayBuffer = await response.arrayBuffer()
-  return Buffer.from(arrayBuffer)
+  throw new Error('Too many redirects')
 }
 
 /**
