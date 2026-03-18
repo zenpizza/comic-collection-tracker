@@ -291,6 +291,7 @@ function parseMultipartForm(req) {
  * Returns raw buffers (not base64) for S3 upload
  */
 async function processImageBuffers(imageBuffer) {
+  // Canonical size definitions — must stay in sync with src/config/imageConfig.js
   const sizes = {
     thumbnail: { width: 150, height: 225 },
     medium: { width: 300, height: 450 },

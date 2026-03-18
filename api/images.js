@@ -132,7 +132,7 @@ async function handleImageGet(req, res, comicId, size) {
     let imageData = imageDoc.images[size]
     if (!imageData) {
       // Try fallback sizes
-      const fallbackSizes = ['original', 'medium', 'thumbnail']
+      const fallbackSizes = ['full', 'original', 'medium', 'thumbnail']
       for (const fallbackSize of fallbackSizes) {
         if (imageDoc.images[fallbackSize]) {
           imageData = imageDoc.images[fallbackSize]
