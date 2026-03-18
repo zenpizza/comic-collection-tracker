@@ -307,8 +307,7 @@ class ComicDataStore {
       return comic
     } catch (error) {
       console.error('Error adding comic:', error)
-      // Return the comic anyway so the frontend can continue
-      return comic
+      throw error
     }
   }
 
