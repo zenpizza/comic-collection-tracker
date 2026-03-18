@@ -44,7 +44,7 @@ function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, 
     // Enhanced text search filter including cover-related fields
     const searchLower = searchTerm.toLowerCase()
     const matchesSearch = comic.series.toLowerCase().includes(searchLower) ||
-      comic.publisher.toLowerCase().includes(searchLower) ||
+      comic.publisher?.toLowerCase().includes(searchLower) ||
       comic.issueNumber.toString().includes(searchLower) ||
       (comic.variant && comic.variant.toLowerCase().includes(searchLower)) ||
       (comic.notes && comic.notes.toLowerCase().includes(searchLower)) ||
