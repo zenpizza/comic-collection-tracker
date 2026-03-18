@@ -221,10 +221,27 @@ function parseJsonBody(req) {
   })
 }
 
+const ALLOWED_IMAGE_DOMAINS = [
+  'comicvine.gamespot.com',
+  'static.comicvine.com',
+  'covers.openlibrary.org',
+]
+
 /**
  * Download image from URL
  */
 async function downloadImage(url) {
+  let urlObj
+  try {
+    urlObj = new URL(url)
+  } catch {
+    throw new Error('Invalid image URL')
+  }
+
+  if (!ALLOWED_IMAGE_DOMAINS.includes(urlObj.hostname)) {
+    throw new Error(`Image domain not allowed: ${urlObj.hostname}`)
+  }
+
   const response = await fetch(url)
   
   if (!response.ok) {
