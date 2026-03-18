@@ -26,7 +26,7 @@ function CoverGallery({
   const filteredAndSortedComics = useMemo(() => {
     let filtered = comics.filter(comic =>
       comic.series.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      comic.publisher.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      comic.publisher?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       comic.issueNumber.toString().includes(searchTerm)
     )
 
