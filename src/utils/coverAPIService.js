@@ -127,7 +127,7 @@ class CoverAPIService {
       console.log(`Using provider: ${providerId}`)
 
       // Check rate limiting
-      if (!this.rateLimiter.canMakeRequest(providerId)) {
+      if (!this.rateLimiter.canMakeRequest(providerId, provider.rateLimit)) {
         console.warn(`Rate limit exceeded for provider: ${provider.name}`)
         continue
       }
@@ -202,7 +202,7 @@ class CoverAPIService {
 
     for (const [providerId, provider] of this.providers) {
       if (!provider.enabled) continue
-      if (!this.rateLimiter.canMakeRequest(providerId)) continue
+      if (!this.rateLimiter.canMakeRequest(providerId, provider.rateLimit)) continue
 
       const searchPromise = this.searchProvider(providerId, series, issue, publisher, year)
         .then(results => {
@@ -795,21 +795,20 @@ class RateLimiter {
     this.requests = new Map() // providerId -> array of timestamps
   }
 
-  canMakeRequest(providerId) {
-    const provider = new CoverAPIService().providers.get(providerId)
-    if (!provider || !provider.rateLimit) return true
+  canMakeRequest(providerId, rateLimit) {
+    if (!rateLimit) return true
 
     const now = Date.now()
     const requests = this.requests.get(providerId) || []
-    
+
     // Remove old requests outside the window
     const validRequests = requests.filter(
-      timestamp => now - timestamp < provider.rateLimit.window
+      timestamp => now - timestamp < rateLimit.window
     )
-    
+
     this.requests.set(providerId, validRequests)
-    
-    return validRequests.length < provider.rateLimit.requests
+
+    return validRequests.length < rateLimit.requests
   }
 
   recordRequest(providerId) {
@@ -818,25 +817,20 @@ class RateLimiter {
     this.requests.set(providerId, requests)
   }
 
-  getRemainingRequests(providerId) {
-    const provider = new CoverAPIService().providers.get(providerId)
-    if (!provider || !provider.rateLimit) return Infinity
+  getRemainingRequests(providerId, rateLimit) {
+    if (!rateLimit) return Infinity
 
     const now = Date.now()
     const requests = this.requests.get(providerId) || []
     const validRequests = requests.filter(
-      timestamp => now - timestamp < provider.rateLimit.window
+      timestamp => now - timestamp < rateLimit.window
     )
 
-    return Math.max(0, provider.rateLimit.requests - validRequests.length)
+    return Math.max(0, rateLimit.requests - validRequests.length)
   }
 }
 
 const coverAPIService = new CoverAPIService()
 
-// Expose to window for debugging
-if (typeof window !== 'undefined') {
-  window.coverAPIService = coverAPIService
-}
 
 export default coverAPIService
