@@ -242,7 +242,7 @@ async function downloadImage(url) {
     throw new Error(`Image domain not allowed: ${urlObj.hostname}`)
   }
 
-  const response = await fetch(url)
+  const response = await fetch(url, { redirect: 'error' })
   
   if (!response.ok) {
     throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
