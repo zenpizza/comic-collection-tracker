@@ -1,0 +1,337 @@
+/* ── Unified Collection View ─────────────────────────────────────────────── */
+
+.ucv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Stats bar ── */
+.ucv-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+
+.ucv-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+  flex: 1;
+}
+
+.ucv-stat-sep {
+  width: 1px;
+  height: 48px;
+  background: var(--border-soft);
+  flex-shrink: 0;
+}
+
+.ucv-stat__value {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--ink-primary);
+  line-height: 1;
+}
+
+.ucv-stat__value--gaps {
+  color: var(--accent-secondary);
+}
+
+.ucv-stat__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+/* ── Search + Sort ── */
+.ucv-controls {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ucv-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.ucv-sort {
+  flex-shrink: 0;
+  width: auto;
+  padding-right: 28px;
+  /* Custom chevron arrow */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237b847d' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* ── Series list ── */
+.ucv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ucv-empty {
+  padding: var(--space-12) var(--space-8);
+  text-align: center;
+  color: var(--ink-muted);
+  border: 1px dashed var(--border-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+/* ── Series row ── */
+.ucv-series {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-fast) var(--ease-standard);
+}
+
+.ucv-series.is-expanded {
+  border-color: var(--accent-primary);
+}
+
+.ucv-series__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: var(--space-3);
+  transition: background-color var(--dur-fast) var(--ease-standard);
+  color: var(--ink-primary);
+  font-family: var(--font-ui);
+}
+
+.ucv-series__header:hover {
+  background: var(--bg-page);
+}
+
+.ucv-series.is-expanded .ucv-series__header {
+  background: rgba(31, 122, 90, 0.04);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ucv-series__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ucv-series__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.ucv-series__range {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.ucv-series__count {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
+.ucv-series__gap-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--status-error-bg);
+  color: var(--status-error-ink);
+  white-space: nowrap;
+}
+
+.ucv-series__chevron {
+  font-size: 0.6rem;
+  color: var(--ink-muted);
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ── Horizontal issue scroller ── */
+.ucv-scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--space-4) var(--space-4) var(--space-6);
+  scroll-snap-type: x mandatory;
+  touch-action: pan-y;
+  cursor: grab;
+  /* Subtle inner shadow to hint scrollability */
+  background: var(--bg-surface);
+}
+
+.ucv-scroller.is-dragging {
+  cursor: grabbing;
+}
+
+.ucv-scroller::-webkit-scrollbar {
+  height: 4px;
+}
+
+.ucv-scroller::-webkit-scrollbar-track {
+  background: var(--bg-page);
+  border-radius: 2px;
+}
+
+.ucv-scroller::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.ucv-track {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+/* ── Individual issue cards ── */
+.ucv-issue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+  border: none;
+  padding: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+
+.ucv-issue--owned {
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.ucv-issue--owned:hover {
+  transform: translateY(-3px);
+}
+
+.ucv-issue--owned:hover .ucv-issue__cover {
+  box-shadow: var(--shadow-2);
+}
+
+.ucv-issue--missing {
+  cursor: default;
+}
+
+/* Cover image (filled by CoverImage component) */
+.ucv-issue__cover {
+  width: 100px;
+  height: 150px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-1);
+  object-fit: cover;
+  display: block;
+  transition: box-shadow var(--dur-fast) var(--ease-standard);
+}
+
+/* Placeholder for missing issues */
+.ucv-issue__placeholder {
+  width: 100px;
+  height: 150px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-page);
+  border: 1.5px dashed var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ucv-issue__placeholder-icon {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--border-strong);
+}
+
+/* Issue number label below each card */
+.ucv-issue__label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.ucv-issue--missing .ucv-issue__label {
+  opacity: 0.5;
+}
+
+/* ── Mobile adjustments ── */
+@media (max-width: 600px) {
+  .ucv-stat {
+    padding: var(--space-3) var(--space-3);
+  }
+
+  .ucv-stat__value {
+    font-size: var(--text-xl);
+  }
+
+  .ucv-stat__label {
+    font-size: 0.62rem;
+  }
+
+  /* Hide the issue range on narrow screens to save space */
+  .ucv-series__range {
+    display: none;
+  }
+
+  .ucv-series__name {
+    font-size: var(--text-md);
+  }
+
+  .ucv-controls {
+    flex-direction: column;
+  }
+
+  .ucv-sort {
+    width: 100%;
+  }
+
+  /* Slightly smaller cards on mobile */
+  .ucv-issue__cover,
+  .ucv-issue__placeholder {
+    width: 80px;
+    height: 120px;
+  }
+}
