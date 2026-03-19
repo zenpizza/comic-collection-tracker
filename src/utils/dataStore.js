@@ -338,6 +338,31 @@ class ComicDataStore {
     }
   }
 
+  // Delete all comics from MongoDB and localStorage
+  async clearAllData() {
+    try {
+      if (this.isProduction) {
+        const response = await fetch('/api/comics/bulk', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirm: true })
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Failed to clear data: ${response.status} ${errorText}`)
+        }
+      }
+
+      // Only clear localStorage after confirmed successful DELETE
+      localStorage.removeItem('comicCollection')
+      return true
+    } catch (error) {
+      console.error('Error clearing all data:', error)
+      throw error
+    }
+  }
+
   // Delete individual comic (uses RESTful endpoint)
   async deleteComic(comicId) {
     try {

@@ -5,6 +5,8 @@
 
 import { MongoClient, ObjectId } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { getS3Client } from '../s3-client.js'
+import { isS3Reference } from '../s3-serialization.js'
 
 let client
 let db
@@ -28,11 +30,15 @@ async function connectToDatabase() {
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
+  }
+
+  if (req.method === 'DELETE') {
+    return handleDeleteAll(req, res)
   }
 
   if (req.method !== 'POST') {
@@ -132,6 +138,53 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       error: 'Failed to perform bulk operation',
+      details: error.message
+    })
+  }
+}
+
+async function handleDeleteAll(req, res) {
+  try {
+    const { confirm } = req.body || {}
+
+    if (confirm !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'Must pass { confirm: true } to delete all comics'
+      })
+    }
+
+    const database = await connectToDatabase()
+    const comicsCollection = database.collection('comics')
+    const coverImagesCollection = database.collection('cover_images')
+
+    // Delete S3 images for each comic that has S3 refs (best effort)
+    const s3Client = getS3Client()
+    if (s3Client.isConfigured()) {
+      const allComics = await comicsCollection.find({}, { projection: { _id: 1 } }).toArray()
+      for (const comic of allComics) {
+        try {
+          await s3Client.deleteImages(comic._id.toString())
+        } catch (s3Error) {
+          console.warn(`[DeleteAll] S3 deletion warning for comic ${comic._id}:`, s3Error.message)
+        }
+      }
+    }
+
+    // Wipe cover_images and comics collections
+    await coverImagesCollection.deleteMany({})
+    const result = await comicsCollection.deleteMany({})
+
+    return res.status(200).json({
+      success: true,
+      message: `Deleted ${result.deletedCount} comics from the collection`,
+      deletedCount: result.deletedCount
+    })
+  } catch (error) {
+    console.error('Error deleting all comics:', error)
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete all comics',
       details: error.message
     })
   }
