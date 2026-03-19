@@ -3,7 +3,7 @@
  * GET /api/debug-env
  */
 
-import { getEnvironment, getMongoDBUri, getDatabaseName } from './config.js'
+import { getEnvironment } from './config.js'
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -21,11 +21,6 @@ export default async function handler(req, res) {
 
   try {
     const env = getEnvironment()
-    const mongoUri = getMongoDBUri()
-    const dbName = getDatabaseName()
-
-    // Mask sensitive parts of URI
-    const maskedUri = mongoUri.replace(/:[^:@]+@/, ':****@')
 
     return res.status(200).json({
       success: true,
@@ -37,8 +32,7 @@ export default async function handler(req, res) {
         isDevelopment: env.isDevelopment,
         isPreview: env.isPreview,
         isProduction: env.isProduction,
-        databaseName: dbName,
-        mongoUri: maskedUri
+        databaseName: env.databaseName,
       },
       timestamp: new Date().toISOString()
     })
