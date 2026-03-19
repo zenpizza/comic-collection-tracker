@@ -101,17 +101,26 @@ function DataManager({ comics, onImport, onRefresh }) {
       'Are you sure you want to clear all data? This action cannot be undone. ' +
       'Consider exporting your data first as a backup.'
     )
-    
-    if (confirmed) {
-      const doubleConfirmed = window.confirm(
-        'This will permanently delete all your comics. Are you absolutely sure?'
-      )
-      
-      if (doubleConfirmed) {
-        onImport([])
-        setStatusMessage({ type: 'success', message: 'All collection data has been cleared.' })
-        alert('All data has been cleared.')
-      }
+
+    if (!confirmed) return
+
+    const doubleConfirmed = window.confirm(
+      'This will permanently delete all your comics. Are you absolutely sure?'
+    )
+
+    if (!doubleConfirmed) return
+
+    try {
+      setBusyAction('clear')
+      setStatusMessage({ type: 'info', message: 'Clearing all data...' })
+      await dataStore.clearAllData()
+      onImport([])
+      setStatusMessage({ type: 'success', message: 'All collection data has been cleared.' })
+    } catch (error) {
+      console.error('Error clearing data:', error)
+      setStatusMessage({ type: 'error', message: 'Failed to clear data. Please try again.' })
+    } finally {
+      setBusyAction(null)
     }
   }
 
