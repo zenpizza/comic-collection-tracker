@@ -55,9 +55,15 @@ class ImageUploadClient {
         controller.abort()
       }, timeout)
 
-      // Forward external cancellation signal to the internal controller
+      // Forward external cancellation signal to the internal controller.
+      // Check .aborted first to handle signals that were already aborted before
+      // this point — addEventListener alone misses pre-aborted signals.
       if (signal) {
-        signal.addEventListener('abort', () => controller.abort())
+        if (signal.aborted) {
+          controller.abort()
+        } else {
+          signal.addEventListener('abort', () => controller.abort())
+        }
       }
 
       // Create fetch options
