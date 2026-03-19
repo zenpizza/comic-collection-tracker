@@ -46,37 +46,39 @@ class ImageUploadClient {
         ...metadata
       }))
 
+      // Use an internal AbortController so the timeout can abort the fetch
+      const controller = new AbortController()
+      let timedOut = false
+
+      const timeoutId = setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, timeout)
+
+      // Forward external cancellation signal to the internal controller
+      if (signal) {
+        signal.addEventListener('abort', () => controller.abort())
+      }
+
       // Create fetch options
       const fetchOptions = {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       }
-
-      // Add abort signal if provided
-      if (signal) {
-        fetchOptions.signal = signal
-      }
-
-      // Add timeout
-      const timeoutId = setTimeout(() => {
-        if (signal && !signal.aborted) {
-          throw new Error('Upload timeout')
-        }
-      }, timeout)
 
       try {
         const response = await fetch(this.uploadEndpoint, fetchOptions)
-        clearTimeout(timeoutId)
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ 
-            error: response.statusText 
+          const errorData = await response.json().catch(() => ({
+            error: response.statusText
           }))
           throw new Error(errorData.error || `Upload failed: ${response.status}`)
         }
 
         const result = await response.json()
-        
+
         return {
           success: true,
           imageId: result.imageId,
@@ -90,9 +92,9 @@ class ImageUploadClient {
     } catch (error) {
       // Enhance error with context
       if (error.name === 'AbortError') {
-        throw new Error('Upload cancelled')
+        throw new Error(timedOut ? 'Upload timeout' : 'Upload cancelled')
       }
-      
+
       throw new Error(`Failed to upload image for comic ${comicId}: ${error.message}`)
     }
   }
