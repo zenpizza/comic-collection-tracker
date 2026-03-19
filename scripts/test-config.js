@@ -3,7 +3,7 @@
  * Test configuration module
  */
 
-import { getEnvironment, getApiConfig } from '../api/config.js';
+import { getEnvironment, getApiConfig, getMongoDBUri } from '../api/config.js';
 
 console.log('🔧 Configuration Test\n');
 console.log('═'.repeat(50));
@@ -20,7 +20,7 @@ console.log('  Is Development:', env.isDevelopment);
 console.log('  Is Preview:', env.isPreview);
 console.log('  Is Production:', env.isProduction);
 console.log('  Database Name:', env.databaseName);
-console.log('  MongoDB URI:', env.mongoUri.substring(0, 30) + '...');
+console.log('  MongoDB URI:', getMongoDBUri().replace(/\/\/[^:]+:[^@]+@/, '//****:****@').substring(0, 30) + '...');
 
 console.log('\n🔑 API Configuration:');
 console.log('  ComicVine API Key:', api.comicVineApiKey ? '✅ Set' : '❌ Not set');

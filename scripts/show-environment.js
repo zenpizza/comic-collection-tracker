@@ -4,7 +4,7 @@
  * Useful for debugging deployment issues
  */
 
-import { getEnvironment, getApiConfig } from '../api/config.js';
+import { getEnvironment, getApiConfig, getMongoDBUri } from '../api/config.js';
 
 const env = getEnvironment();
 const api = getApiConfig();
@@ -45,10 +45,12 @@ console.log(`   Is Production:  ${env.isProduction ? '✅' : '❌'}`);
 
 console.log('\n💾 Database Configuration:');
 console.log(`   Database Name: ${env.databaseName}`);
-console.log(`   MongoDB URI:   ${env.mongoUri.substring(0, 40)}...`);
+const mongoUri = getMongoDBUri();
+const redactedUri = mongoUri.replace(/\/\/[^:]+:[^@]+@/, '//****:****@');
+console.log(`   MongoDB URI:   ${redactedUri.substring(0, 40)}...`);
 
-const isAtlas = env.mongoUri.includes('mongodb+srv');
-const isLocal = env.mongoUri.includes('localhost');
+const isAtlas = mongoUri.includes('mongodb+srv');
+const isLocal = mongoUri.includes('localhost');
 console.log(`   Type:          ${isAtlas ? 'MongoDB Atlas (Cloud)' : isLocal ? 'Local Docker' : 'Unknown'}`);
 
 console.log('\n🔑 API Keys:');
