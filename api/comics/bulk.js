@@ -28,11 +28,15 @@ async function connectToDatabase() {
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
+  }
+
+  if (req.method === 'DELETE') {
+    return handleDeleteAll(req, res)
   }
 
   if (req.method !== 'POST') {
@@ -132,6 +136,36 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       error: 'Failed to perform bulk operation',
+      details: error.message
+    })
+  }
+}
+
+async function handleDeleteAll(req, res) {
+  try {
+    const { confirm } = req.body || {}
+
+    if (confirm !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'Must pass { confirm: true } to delete all comics'
+      })
+    }
+
+    const database = await connectToDatabase()
+    const collection = database.collection('comics')
+    const result = await collection.deleteMany({})
+
+    return res.status(200).json({
+      success: true,
+      message: `Deleted ${result.deletedCount} comics from the collection`,
+      deletedCount: result.deletedCount
+    })
+  } catch (error) {
+    console.error('Error deleting all comics:', error)
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete all comics',
       details: error.message
     })
   }
