@@ -85,7 +85,6 @@ export function getEnvironment() {
     isProduction: vercelEnv === 'production' || (!vercelEnv && nodeEnv === 'production'),
     
     // Database info
-    mongoUri: getMongoDBUri(),
     databaseName: getDatabaseName(),
   };
 }
