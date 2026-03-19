@@ -341,8 +341,6 @@ class ComicDataStore {
   // Delete all comics from MongoDB and localStorage
   async clearAllData() {
     try {
-      localStorage.removeItem('comicCollection')
-
       if (this.isProduction) {
         const response = await fetch('/api/comics/bulk', {
           method: 'DELETE',
@@ -356,6 +354,8 @@ class ComicDataStore {
         }
       }
 
+      // Only clear localStorage after confirmed successful DELETE
+      localStorage.removeItem('comicCollection')
       return true
     } catch (error) {
       console.error('Error clearing all data:', error)
