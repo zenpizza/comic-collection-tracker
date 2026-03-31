@@ -10,7 +10,7 @@
  * - AWS_S3_PUBLIC_BASE_URL: CloudFront distribution URL
  * - AWS_ACCESS_KEY_ID: IAM access key
  * - AWS_SECRET_ACCESS_KEY: IAM secret key
- * - CLOUDFRONT_DISTRIBUTION_ID: CloudFront distribution ID (for cache invalidation)
+ * - AWS_CLOUDFRONT_DISTRIBUTION_ID: CloudFront distribution ID (for cache invalidation)
  */
 
 import {
@@ -55,7 +55,7 @@ class S3ImageClient {
       region: process.env.AWS_REGION,
       bucket: process.env.AWS_S3_BUCKET,
       publicBaseUrl: process.env.AWS_S3_PUBLIC_BASE_URL,
-      distributionId: process.env.CLOUDFRONT_DISTRIBUTION_ID,
+      distributionId: process.env.AWS_CLOUDFRONT_DISTRIBUTION_ID,
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       // Optional prefix for environment isolation (e.g., 'production', 'preview', 'development')
