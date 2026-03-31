@@ -13,6 +13,18 @@
     },
     "api/download.js": {
       "maxDuration": 30
+    },
+    "api/comics/[id].js": {
+      "maxDuration": 30
+    },
+    "api/comics/bulk.js": {
+      "maxDuration": 30
+    },
+    "api/images/upload.js": {
+      "maxDuration": 30
+    },
+    "api/images.js": {
+      "maxDuration": 30
     }
   },
   "routes": [
