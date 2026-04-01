@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import ComicForm from './components/ComicForm'
 import BulkImport from './components/BulkImport'
-import CollectionView from './components/CollectionView'
-import MissingIssues from './components/MissingIssues'
+import UnifiedCollectionView from './components/UnifiedCollectionView'
 import DataManager from './components/DataManager'
-import CollectionBrowser from './components/CollectionBrowser'
-
 import BulkCoverManager from './components/BulkCoverManager'
 import Toast from './components/Toast'
-import ErrorHandlingTest from './components/ErrorHandlingTest'
 import { ErrorFeedbackProvider } from './components/ErrorFeedback'
 import dataStore from './utils/dataStore'
 import coverErrorHandler from './utils/errorHandling'
@@ -49,7 +45,7 @@ class AppErrorBoundary extends React.Component {
 }
 
 function App() {
-  const tabOrder = ['collection', 'browse', 'missing', 'add', 'bulk', 'data', 'test-errors']
+  const tabOrder = ['collection', 'add', 'bulk', 'data']
   const [comics, setComics] = useState([])
   const [activeTab, setActiveTab] = useState('collection')
   const [isLoading, setIsLoading] = useState(true)
@@ -367,28 +363,6 @@ function App() {
               My Collection
             </button>
             <button
-              id="tab-browse"
-              role="tab"
-              aria-selected={activeTab === 'browse'}
-              aria-controls="panel-browse"
-              className={`segmented-tabs__button ${activeTab === 'browse' ? 'active is-active' : ''}`}
-              onClick={() => setActiveTab('browse')}
-              onKeyDown={(event) => handleTabKeyDown(event, 'browse')}
-            >
-              Browse Titles
-            </button>
-            <button
-              id="tab-missing"
-              role="tab"
-              aria-selected={activeTab === 'missing'}
-              aria-controls="panel-missing"
-              className={`segmented-tabs__button ${activeTab === 'missing' ? 'active is-active' : ''}`}
-              onClick={() => setActiveTab('missing')}
-              onKeyDown={(event) => handleTabKeyDown(event, 'missing')}
-            >
-              Missing Issues
-            </button>
-            <button
               id="tab-add"
               role="tab"
               aria-selected={activeTab === 'add'}
@@ -421,34 +395,15 @@ function App() {
             >
               Data Manager
             </button>
-            <button
-              id="tab-test-errors"
-              role="tab"
-              aria-selected={activeTab === 'test-errors'}
-              aria-controls="panel-test-errors"
-              className={`segmented-tabs__button ${activeTab === 'test-errors' ? 'active is-active' : ''}`}
-              onClick={() => setActiveTab('test-errors')}
-              onKeyDown={(event) => handleTabKeyDown(event, 'test-errors')}
-            >
-              Test Errors
-            </button>
           </nav>
 
           <main className="app-main view-panel" role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
             {activeTab === 'collection' && (
-              <CollectionView
+              <UnifiedCollectionView
                 comics={comics}
                 onRemove={removeComic}
                 onEdit={editComic}
-                recentlyImportedIds={recentlyImportedIds}
-                onClearRecentFilter={handleClearRecentFilter}
               />
-            )}
-            {activeTab === 'browse' && (
-              <CollectionBrowser comics={comics} />
-            )}
-            {activeTab === 'missing' && (
-              <MissingIssues comics={comics} />
             )}
             {activeTab === 'add' && (
               <ComicForm
@@ -472,9 +427,6 @@ function App() {
                 onRefresh={loadComicsFromStore}
                 onComicsUpdate={setComics}
               />
-            )}
-            {activeTab === 'test-errors' && (
-              <ErrorHandlingTest />
             )}
           </main>
 
