@@ -116,11 +116,13 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
     [seriesData]
   )
 
-  // Pointer drag handlers for the cover scroller
+  // Pointer drag handlers for the cover scroller.
+  // No setPointerCapture — pointer capture redirects the pointerup that
+  // synthesises click to the scroller element, so child button onClick
+  // never fires. Instead we cancel stale drags via onPointerLeave.
   const handlePointerDown = (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const el = e.currentTarget
-    el.setPointerCapture(e.pointerId)
     dragState.current = {
       isDragging: true,
       startX: e.clientX,
@@ -139,20 +141,22 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
   }
 
   const handlePointerUp = (e) => {
-    const el = e.currentTarget
-    el.releasePointerCapture(e.pointerId)
+    if (!dragState.current.isDragging) return
+    e.currentTarget.classList.remove('is-dragging')
     dragState.current.isDragging = false
-    el.classList.remove('is-dragging')
-    // Snapshot moved state then reset so the next click is never blocked
-    dragState.current.wasDrag = dragState.current.moved
+    dragState.current.moved = false
+  }
+
+  const handlePointerLeave = (e) => {
+    if (!dragState.current.isDragging) return
+    e.currentTarget.classList.remove('is-dragging')
+    dragState.current.isDragging = false
     dragState.current.moved = false
   }
 
   const handleIssueClick = (item) => {
-    if (dragState.current.wasDrag) {
-      dragState.current.wasDrag = false
-      return
-    }
+    // Swallow clicks that ended a drag; moved is already reset by handlePointerUp
+    if (dragState.current.moved) return
     if (item.type === 'comic') setSelectedComic(item.comic)
   }
 
@@ -319,7 +323,8 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
                   onPointerDown={handlePointerDown}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
-                  onPointerCancel={handlePointerUp}
+                  onPointerCancel={handlePointerLeave}
+                  onPointerLeave={handlePointerLeave}
                 >
                   {activeSeries.items.map((item) => (
                     <button
