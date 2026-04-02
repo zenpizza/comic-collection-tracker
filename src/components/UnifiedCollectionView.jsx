@@ -143,11 +143,14 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
     el.releasePointerCapture(e.pointerId)
     dragState.current.isDragging = false
     el.classList.remove('is-dragging')
+    // Snapshot moved state then reset so the next click is never blocked
+    dragState.current.wasDrag = dragState.current.moved
+    dragState.current.moved = false
   }
 
   const handleIssueClick = (item) => {
-    if (dragState.current.moved) {
-      dragState.current.moved = false
+    if (dragState.current.wasDrag) {
+      dragState.current.wasDrag = false
       return
     }
     if (item.type === 'comic') setSelectedComic(item.comic)
