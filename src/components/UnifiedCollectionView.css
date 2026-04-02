@@ -265,7 +265,22 @@
   width: 12px;
   height: 12px;
   border-radius: 2px;
+  border: none;
+  padding: 0;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-standard),
+              opacity var(--dur-fast) var(--ease-standard);
+}
+
+.ucv__dot:hover {
+  transform: scale(1.5);
+  opacity: 1 !important;
+}
+
+.ucv__dot:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .ucv__dot--owned {
