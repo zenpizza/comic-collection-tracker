@@ -342,7 +342,7 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
                           comicId={item.comic.id}
                           comic={item.comic}
                           size="medium"
-                          lazy={false}
+                          lazy={true}
                           className="ucv__cover"
                           alt={`${activeSeries.seriesName} #${item.issueLabel}`}
                         />
