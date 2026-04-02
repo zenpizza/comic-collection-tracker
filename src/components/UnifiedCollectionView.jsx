@@ -365,7 +365,6 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
                       {item.type === 'missing' ? (
                         <div className="ucv__cover ucv__cover--missing" aria-hidden="true">
                           <span className="ucv__missing-number">#{item.issueLabel}</span>
-                          <span className="ucv__missing-label">Missing</span>
                         </div>
                       ) : (
                         <CoverImage

@@ -370,15 +370,6 @@
   letter-spacing: 0.01em;
 }
 
-.ucv__missing-label {
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--accent-secondary);
-  opacity: 0.85;
-}
 
 .ucv__issue-label {
   font-size: 0.7rem;
