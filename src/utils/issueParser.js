@@ -55,10 +55,12 @@ export function parseIssueForSearch(series, issueNumber) {
   const specialMatch = issueStr.match(/^(special|giant-size|king-size)\s+(\d+)/i)
   if (specialMatch) {
     const seriesWithoutThe = series.replace(/^The\s+/i, '')
+    const keywordMap = { special: 'Special', 'giant-size': 'Giant-Size', 'king-size': 'King-Size' }
+    const keyword = keywordMap[specialMatch[1].toLowerCase()] || specialMatch[1]
     return {
-      series: `${seriesWithoutThe} ${specialMatch[1]}`,
+      series: `${seriesWithoutThe} ${keyword}`,
       issue: specialMatch[2],
-      alternativeSeries: `${series} ${specialMatch[1]}`
+      alternativeSeries: `${series} ${keyword}`
     }
   }
   
