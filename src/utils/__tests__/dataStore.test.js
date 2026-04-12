@@ -77,7 +77,7 @@ describe('validateAndMigrateData', () => {
 describe('checkForDuplicate', () => {
   const existing = [
     comic('Amazing Spider-Man', '1'),
-    comic('Batman', '5'),
+    comic('Batman', '5A'),
   ]
 
   it('returns the matching comic when a duplicate exists', () => {
@@ -92,7 +92,7 @@ describe('checkForDuplicate', () => {
   })
 
   it('is case-insensitive for issue number', () => {
-    const result = dataStore.checkForDuplicate({ series: 'Batman', issueNumber: '5' }, existing)
+    const result = dataStore.checkForDuplicate({ series: 'Batman', issueNumber: '5a' }, existing)
     expect(result).toBeDefined()
   })
 
@@ -102,7 +102,8 @@ describe('checkForDuplicate', () => {
   })
 
   it('matches numeric issue numbers against string issue numbers', () => {
-    const result = dataStore.checkForDuplicate({ series: 'Batman', issueNumber: 5 }, existing)
+    const withNumericString = [comic('Batman', '5')]
+    const result = dataStore.checkForDuplicate({ series: 'Batman', issueNumber: 5 }, withNumericString)
     expect(result).toBeDefined()
   })
 })
