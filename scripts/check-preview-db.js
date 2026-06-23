@@ -4,9 +4,12 @@
  */
 
 import { MongoClient } from 'mongodb'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 // Preview database URI
-const PREVIEW_URI = "mongodb+srv://Vercel-Admin-comic-collection-tracker:<REDACTED-ROTATED-SECRET>@comic-collection-tracke.aufn0iz.mongodb.net/comic-collection-preview?retryWrites=true&w=majority&appName=comic-collection-tracker"
+const PREVIEW_URI = process.env.MONGODB_URI
 
 async function check() {
   console.log('🔍 Checking preview database...\n')
