@@ -30,7 +30,7 @@
     "test:blob-integration": "node scripts/test-app-blob-cleanup.js",
     "test:cover-replacement": "node scripts/test-cover-replacement.js",
     "test:cover-replacement-comicvine": "node scripts/test-cover-replacement-comicvine.js",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.955.0",
