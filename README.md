@@ -38,6 +38,7 @@ Access the app at http://localhost:5173
 - Node.js 18+
 - Docker Desktop (for local MongoDB)
 - VPN disabled (ProtonVPN blocks MongoDB connections)
+- [gitleaks](https://github.com/gitleaks/gitleaks) (`brew install gitleaks`) — scans staged changes for secrets via a pre-commit hook; commits proceed with a warning if it's not installed
 
 ### Detailed Setup
 
