@@ -20,7 +20,7 @@ async function detectAndRemoveDuplicates() {
     
     client = new MongoClient(MONGODB_URI)
     await client.connect()
-    const db = client.db('comic-collection')
+    const db = client.db() // uses the database named in MONGODB_URI
     const collection = db.collection('comics')
 
     // Get all individual comic documents

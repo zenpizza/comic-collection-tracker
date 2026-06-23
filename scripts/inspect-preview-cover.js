@@ -5,7 +5,7 @@
 import { MongoClient } from 'mongodb'
 import dotenv from 'dotenv'
 
-dotenv.config()
+dotenv.config({ path: '.env.preview' })
 
 const PREVIEW_URI = process.env.MONGODB_URI
 
