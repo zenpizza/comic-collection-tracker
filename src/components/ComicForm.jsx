@@ -292,6 +292,10 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
           }))
         }
         setCoverError(null)
+        // No coverData to upload (the cover is already saved on the shared
+        // metadata record) — stop the auto-fetch effect from retrying, since
+        // it only stops once coverData is set or auto-fetch is disabled.
+        setAutoFetchEnabled(false)
         return
       }
 
