@@ -116,6 +116,37 @@ export default async function handler(req, res) {
 
     const isReplacement = !!comic.coverAssetId
 
+    // If this is a ComicVine-sourced cover (not a genuine user file upload)
+    // for a comic that doesn't have its own cover yet, and another account
+    // already has the shared asset for this exact identity, just reuse it
+    // — re-downloading/re-storing the same bytes would be pure waste.
+    if (!isReplacement && metadata?.source === 'api') {
+      const existingSharedAsset = await findAssetByIdentityKey(database, comic.identityKey)
+      if (existingSharedAsset) {
+        console.log(`[Upload] Reusing existing shared asset for identity: ${comic.identityKey}`)
+        await attachCoverAsset(database, { userId: req.userId, comicId, assetId: existingSharedAsset._id })
+
+        if (metadata.volumeId || metadata.volumeName) {
+          await database.collection('comics').updateOne(
+            { _id: new ObjectId(comicId), userId: req.userId },
+            { $set: {
+              ...(metadata.volumeId && { volumeId: metadata.volumeId }),
+              ...(metadata.volumeName && { volumeName: metadata.volumeName }),
+              updatedAt: new Date().toISOString(),
+            } }
+          )
+        }
+
+        return res.status(200).json({
+          success: true,
+          comicId,
+          coverAssetId: existingSharedAsset._id.toString(),
+          storage: 'reused',
+          message: 'Reused existing shared cover'
+        })
+      }
+    }
+
     // Process image into size variants using sharp
     const processedBuffers = await processImageBuffers(imageBuffer)
 

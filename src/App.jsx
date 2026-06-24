@@ -116,8 +116,13 @@ function App() {
       // Save to database first (backend will generate ObjectId)
       const savedComic = await dataStore.addComic(newComic)
       
-      // If we have cover data and a valid comic ID, upload the cover
-      if (coverData && savedComic?.id) {
+      // If we have cover data and a valid comic ID, upload the cover —
+      // but only if the backend didn't already reuse an existing shared
+      // cover for this identity (savedComic.hasCover). Uploading here
+      // unconditionally would create a redundant private asset on top of
+      // the one just reused, since the upload endpoint always treats an
+      // already-covered comic as a replacement.
+      if (coverData && savedComic?.id && !savedComic?.hasCover) {
         console.log('Uploading cover for new comic:', savedComic.id)
         try {
           // Get the image blob from coverData
