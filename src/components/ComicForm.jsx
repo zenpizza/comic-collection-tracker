@@ -311,6 +311,10 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       if (results.length === 0) {
         console.log('No covers found for', formData.series, formData.issueNumber)
         setCoverError('No covers found for this comic. You can upload a cover manually.')
+        // Without this, the auto-fetch effect's guard (!coverData) stays
+        // satisfied forever and re-triggers the same failed search every
+        // second since coverData never gets set on this path.
+        setAutoFetchEnabled(false)
         return
       }
 
@@ -325,7 +329,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
     } catch (error) {
       console.error('Cover search error:', error)
-      
+
       if (error.message.includes('service is not available') || error.message.includes('backend server')) {
         setCoverError('Cover search service is not available. Please ensure the backend server is running, or upload covers manually.')
       } else if (error.message.includes('backend proxy') || error.message.includes('CORS')) {
@@ -333,6 +337,10 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       } else {
         setCoverError(`Cover search failed: ${error.message}`)
       }
+      // Same loop-prevention as the zero-results path above — a failed
+      // search never sets coverData, so auto-fetch must be disabled here
+      // too or the effect retries the same failing search every second.
+      setAutoFetchEnabled(false)
     } finally {
       setIsSearchingCovers(false)
     }
