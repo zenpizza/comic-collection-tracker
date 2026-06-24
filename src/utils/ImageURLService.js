@@ -18,6 +18,7 @@
  */
 
 import imageStorage from './imageStorage.js'
+import { apiFetch } from './apiClient.js'
 
 // SSR/Node.js safe base64 decoder
 const atobSafe = typeof atob === 'function'
@@ -840,6 +841,7 @@ class ImageURLService {
 
   /**
    * Fetch with timeout and proper AbortController cleanup
+   * Uses apiFetch so the Clerk Bearer token is attached to internal /api requests
    */
   async fetchWithTimeout(url, options = {}, timeout = 10000) {
     const controller = new AbortController()
@@ -851,7 +853,7 @@ class ImageURLService {
         controller.abort()
       }, timeout)
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         ...options,
         signal: controller.signal
       })

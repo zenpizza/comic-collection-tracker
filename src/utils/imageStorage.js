@@ -3,6 +3,8 @@
  * Handles both local storage (IndexedDB) and remote storage (MongoDB) with hybrid sync
  */
 
+import { apiFetch } from './apiClient.js'
+
 class ImageStorageService {
   constructor() {
     this.dbName = 'ComicCoverStorage'
@@ -457,26 +459,6 @@ class ImageStorageService {
   }
 
   /**
-   * Get image URL from backend server
-   * @param {string} comicId - Comic identifier
-   * @param {string} size - Image size (thumbnail, medium, full)
-   * @returns {Promise<string>} - Image URL
-   */
-  async getImageUrlRemote(comicId, size = 'medium') {
-    try {
-      if (!['thumbnail', 'medium', 'full'].includes(size)) {
-        throw new Error('Invalid size. Must be thumbnail, medium, or full')
-      }
-
-      // Return the backend URL directly - the browser will handle the request
-      return `/api/images/${comicId}/${size}`
-    } catch (error) {
-      console.error('Remote URL generation error:', error)
-      throw new Error(`Failed to get remote URL: ${error.message}`)
-    }
-  }
-
-  /**
    * Get image data from backend server
    * @param {string} comicId - Comic identifier
    * @param {string} size - Image size (thumbnail, medium, full)
@@ -484,7 +466,7 @@ class ImageStorageService {
    */
   async getImageDataRemote(comicId, size = 'medium') {
     try {
-      const response = await fetch(`/api/images/${comicId}/${size}`)
+      const response = await apiFetch(`/api/images/${comicId}/${size}`)
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -507,7 +489,7 @@ class ImageStorageService {
    */
   async getImageMetadataRemote(comicId) {
     try {
-      const response = await fetch(`/api/images/${comicId}/metadata`)
+      const response = await apiFetch(`/api/images/${comicId}/metadata`)
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -530,7 +512,7 @@ class ImageStorageService {
    */
   async deleteImageRemote(comicId) {
     try {
-      const response = await fetch(`/api/images/${comicId}`, {
+      const response = await apiFetch(`/api/images/${comicId}`, {
         method: 'DELETE'
       })
 
@@ -569,7 +551,7 @@ class ImageStorageService {
       }
 
       // Call sync API
-      const response = await fetch('/api/images/sync', {
+      const response = await apiFetch('/api/images/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -694,71 +676,6 @@ class ImageStorageService {
     } catch (error) {
       console.error('Upload error:', error)
       throw new Error(`Failed to upload image: ${error.message}`)
-    }
-  }
-
-  /**
-   * Get image with automatic fallback between remote and local
-   * @param {string} comicId - Comic identifier
-   * @param {string} size - Image size
-   * @param {Object} options - Options for retrieval
-   * @returns {Promise<string|null>} - Image URL or null
-   */
-  async getImageUrlHybrid(comicId, size = 'medium', options = {}) {
-    const {
-      preferRemote = true,
-      fallbackToLocal = true,
-      fallbackToRemote = true
-    } = options
-
-    try {
-      if (preferRemote) {
-        // Try remote first
-        try {
-          const remoteUrl = await this.getImageUrlRemote(comicId, size)
-          
-          // Verify the remote image exists by making a HEAD request
-          const response = await fetch(remoteUrl, { method: 'HEAD' })
-          if (response.ok) {
-            return remoteUrl
-          }
-        } catch (remoteError) {
-          console.warn('Remote image access failed:', remoteError)
-        }
-
-        // Fallback to local if remote fails
-        if (fallbackToLocal) {
-          try {
-            return await this.getImageUrl(comicId, size)
-          } catch (localError) {
-            console.warn('Local image access failed:', localError)
-          }
-        }
-      } else {
-        // Try local first
-        try {
-          const localUrl = await this.getImageUrl(comicId, size)
-          if (localUrl) {
-            return localUrl
-          }
-        } catch (localError) {
-          console.warn('Local image access failed:', localError)
-        }
-
-        // Fallback to remote if local fails
-        if (fallbackToRemote) {
-          try {
-            return await this.getImageUrlRemote(comicId, size)
-          } catch (remoteError) {
-            console.warn('Remote image access failed:', remoteError)
-          }
-        }
-      }
-
-      return null
-    } catch (error) {
-      console.error('Hybrid image retrieval error:', error)
-      return null
     }
   }
 
