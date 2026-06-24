@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { ObjectId } from 'mongodb'
 import { startTestDb } from './testDb.js'
 import { ensureIndexes as ensureAssetIndexes, createAsset, findAssetByIdentityKey } from '../coverAssets.js'
 import {
@@ -92,6 +93,25 @@ describe('comics + coverAssets integration', () => {
 
     const count = await db.collection('comics').countDocuments({ userId: 'user_f' })
     expect(count).toBe(1)
+  })
+
+  it('editing a non-identity canonical field (publisher) on a ComicVine-identified comic keeps its comicvine identity and cover', async () => {
+    const comic = await addComic(db, {
+      userId: 'user_cv',
+      comic: { comicVineId: '176826', series: 'Groo the Wanderer', issueNumber: '1' },
+    })
+    const asset = await createAsset(db, { identityKey: comic.identityKey, images: { medium: { data: 'g' } } })
+    await db.collection('comics').updateOne(
+      { _id: new ObjectId(comic.id) },
+      { $set: { coverAssetId: asset._id, hasCover: true } }
+    )
+
+    const updated = await updateComic(db, { userId: 'user_cv', comicId: comic.id, updates: { publisher: 'Indie' } })
+
+    expect(updated.publisher).toBe('Indie')
+    expect(updated.identityKey).toBe('comicvine|176826')
+    expect(updated.coverAssetId).toBe(asset._id.toString())
+    expect(updated.hasCover).toBe(true)
   })
 
   it('updateComic on a personal field (notes) does not touch identityKey or coverAssetId', async () => {

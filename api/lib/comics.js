@@ -42,6 +42,7 @@ function toFlatComic(doc) {
     notes: doc.notes,
     dateAdded: doc.dateAdded,
     identityKey: doc.identityKey,
+    comicVineId: doc.comicVineId,
     coverAssetId: doc.coverAssetId ? doc.coverAssetId.toString() : null,
     hasCover: doc.hasCover === true,
     volumeId: doc.volumeId,
@@ -67,6 +68,7 @@ export async function addComic(db, { userId, comic }) {
     notes: comic.notes || '',
     dateAdded: comic.dateAdded || now,
     identityKey,
+    comicVineId: comic.comicVineId ? String(comic.comicVineId) : null,
     coverAssetId: existingAsset ? existingAsset._id : null,
     hasCover: !!existingAsset,
     volumeId: comic.volumeId || null,
@@ -133,6 +135,7 @@ export async function updateComic(db, { userId, comicId, updates }) {
     set.variant = merged.variant || null
     set.volumeId = merged.volumeId || null
     set.volumeName = merged.volumeName || existing.volumeName
+    set.comicVineId = merged.comicVineId ? String(merged.comicVineId) : null
     set.identityKey = identityKey
   }
 
