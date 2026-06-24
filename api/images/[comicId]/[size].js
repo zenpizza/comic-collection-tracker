@@ -113,14 +113,27 @@ export default async function handler(req, res) {
       })
     }
     
-    // Check if this is an S3 reference (has url field)
+    // Check if this is an S3 reference (has url field). Proxy the bytes
+    // through our own origin rather than redirecting — the browser's
+    // authenticated fetch would carry our Authorization header into a
+    // cross-origin request to CloudFront, which has no CORS policy for it
+    // and fails preflight.
     if (isS3Reference(sizeData)) {
-      console.log(`[Image Retrieval] Redirecting to S3/CloudFront: ${sizeData.url}`)
-      
-      // Return 302 redirect to CloudFront URL
-      res.setHeader('Location', sizeData.url)
-      res.setHeader('Cache-Control', 'public, max-age=86400') // Cache redirect for 1 day
-      return res.status(302).end()
+      console.log(`[Image Retrieval] Proxying S3/CloudFront image: ${sizeData.url}`)
+      const cdnResponse = await fetch(sizeData.url)
+
+      if (!cdnResponse.ok) {
+        return res.status(cdnResponse.status).json({
+          success: false,
+          error: 'Failed to fetch image from storage'
+        })
+      }
+
+      const imageBuffer = Buffer.from(await cdnResponse.arrayBuffer())
+      res.setHeader('Content-Type', cdnResponse.headers.get('content-type') || 'image/jpeg')
+      res.setHeader('Content-Length', imageBuffer.length)
+      res.setHeader('Cache-Control', 'public, max-age=86400')
+      return res.status(200).send(imageBuffer)
     }
     
     // Fall back to legacy base64 path
