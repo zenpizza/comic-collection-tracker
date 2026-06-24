@@ -5,6 +5,7 @@
 
 import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { requireAuth } from '../auth.js'
 
 let client
 let db
@@ -35,17 +36,21 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
   try {
     const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Find all comics that need normalization
+    // Canonical fields (series/issueNumber/publisher/year) live in the
+    // shared comicMetadata collection now — normalizing them benefits
+    // every account that references a given record.
+    const collection = database.collection('comicMetadata')
+
     const allComics = await collection.find({}).toArray()
-    console.log(`Found ${allComics.length} total comics to check`)
+    console.log(`Found ${allComics.length} total metadata records to check`)
 
     let normalizedCount = 0
     const operations = []
@@ -53,18 +58,6 @@ export default async function handler(req, res) {
     allComics.forEach(comic => {
       let needsUpdate = false
       const updates = {}
-
-      // Normalize ID to number (if it's a valid numeric string)
-      if (comic.id !== undefined && comic.id !== null) {
-        const currentType = typeof comic.id
-        if (currentType === 'string' && !isNaN(comic.id) && !isNaN(parseFloat(comic.id))) {
-          const numericId = Number(comic.id)
-          if (Number.isSafeInteger(numericId) && numericId !== comic.id) {
-            updates.id = numericId
-            needsUpdate = true
-          }
-        }
-      }
 
       // Normalize issueNumber to string
       if (comic.issueNumber !== undefined && comic.issueNumber !== null) {
@@ -131,85 +124,24 @@ export default async function handler(req, res) {
       console.log(`Updated ${updateResult.modifiedCount} records`)
     }
 
-    // Now run deduplication after normalization
-    console.log('Running deduplication after normalization...')
-    
-    // Re-fetch all comics after normalization
-    const normalizedComics = await collection.find({}).toArray()
-    
-    // Group by series + issueNumber + publisher to find duplicates
-    const comicGroups = {}
-    const duplicates = []
-    const unique = []
-
-    normalizedComics.forEach(comic => {
-      // Create a key for deduplication (now all fields should be strings)
-      const key = `${String(comic.series || '').toLowerCase().trim()}|${String(comic.issueNumber || '').toLowerCase().trim()}|${String(comic.publisher || '').toLowerCase().trim()}`
-      
-      if (!comicGroups[key]) {
-        comicGroups[key] = []
-      }
-      comicGroups[key].push(comic)
-    })
-
-    // Process each group
-    Object.values(comicGroups).forEach(group => {
-      if (group.length > 1) {
-        // Keep the most recent one (by _id or dateAdded)
-        const sorted = group.sort((a, b) => {
-          // Prefer comics with covers
-          if (a.hasCover && !b.hasCover) return -1
-          if (!a.hasCover && b.hasCover) return 1
-          
-          // Then by date added (most recent first)
-          const dateA = new Date(a.dateAdded || a.createdAt || 0)
-          const dateB = new Date(b.dateAdded || b.createdAt || 0)
-          return dateB - dateA
-        })
-        
-        unique.push(sorted[0]) // Keep the first (best) one
-        duplicates.push(...sorted.slice(1)) // Mark the rest as duplicates
-      } else {
-        unique.push(group[0]) // Single comic, keep it
-      }
-    })
-
-    console.log(`Found ${duplicates.length} duplicates to remove after normalization`)
-
-    // Delete duplicates
-    let deleteResult = null
-    if (duplicates.length > 0) {
-      const duplicateIds = duplicates.map(comic => comic._id)
-      deleteResult = await collection.deleteMany({
-        _id: { $in: duplicateIds }
-      })
-      
-      console.log(`Deleted ${deleteResult.deletedCount} duplicate records`)
-    }
+    // Note: deduplication is no longer run here. Shared comicMetadata
+    // records are deduplicated atomically at write time (findOrCreateComicMetadata
+    // upserts by dedupeKey), so blindly deleting "duplicate" metadata records
+    // here could orphan other accounts' userComics references to them.
+    // Account-level duplicates (the same account referencing the same
+    // metadata twice) are handled by POST /api/comics/dedupe instead.
 
     return res.status(200).json({
       success: true,
-      message: `Data normalization completed: ${normalizedCount} records normalized, ${duplicates.length} duplicates removed`,
+      message: `Data normalization completed: ${normalizedCount} records normalized`,
       stats: {
         totalRecords: allComics.length,
-        recordsNormalized: normalizedCount,
-        duplicatesRemoved: duplicates.length,
-        finalCount: unique.length
+        recordsNormalized: normalizedCount
       },
       normalizationDetails: updateResult ? {
         matched: updateResult.matchedCount,
         modified: updateResult.modifiedCount
-      } : null,
-      deduplicationDetails: deleteResult ? {
-        deleted: deleteResult.deletedCount
-      } : null,
-      sampleDuplicatesRemoved: duplicates.map(comic => ({
-        id: comic.id,
-        series: comic.series,
-        issueNumber: comic.issueNumber,
-        publisher: comic.publisher,
-        originalIssueNumberType: typeof comic.issueNumber
-      })).slice(0, 5) // Show first 5 for reference
+      } : null
     })
 
   } catch (error) {

@@ -1,5 +1,6 @@
 // Data store utility for persistent comic collection storage
 import { compareSeriesNames } from './sortUtils.js'
+import { apiFetch } from './apiClient.js'
 
 class ComicDataStore {
   constructor() {
@@ -13,7 +14,7 @@ class ComicDataStore {
     try {
       if (this.isProduction) {
         // Try to load from MongoDB
-        const response = await fetch('/api/comics')
+        const response = await apiFetch('/api/comics')
         if (response.ok) {
           const data = await response.json()
           // Handle both old and new API response formats
@@ -81,7 +82,7 @@ class ComicDataStore {
 
       // Save to cloud storage if in production
       if (this.isProduction) {
-        const response = await fetch('/api/comics/bulk', {
+        const response = await apiFetch('/api/comics/bulk', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -160,7 +161,7 @@ class ComicDataStore {
   // Export data for backup
   async exportData() {
     try {
-      const response = await fetch('/api/comics')
+      const response = await apiFetch('/api/comics')
       if (response.ok) {
         const data = await response.json()
         // Return the full response which includes comics and metadata
@@ -283,7 +284,7 @@ class ComicDataStore {
   async addComic(comic) {
     try {
       if (this.isProduction) {
-        const response = await fetch('/api/comics', {
+        const response = await apiFetch('/api/comics', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -315,7 +316,7 @@ class ComicDataStore {
   async updateComic(comic) {
     try {
       if (this.isProduction) {
-        const response = await fetch(`/api/comics/${comic.id}`, {
+        const response = await apiFetch(`/api/comics/${comic.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -342,7 +343,7 @@ class ComicDataStore {
   async clearAllData() {
     try {
       if (this.isProduction) {
-        const response = await fetch('/api/comics/bulk', {
+        const response = await apiFetch('/api/comics/bulk', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ confirm: true })
@@ -367,7 +368,7 @@ class ComicDataStore {
   async deleteComic(comicId) {
     try {
       if (this.isProduction) {
-        const response = await fetch(`/api/comics/${comicId}`, {
+        const response = await apiFetch(`/api/comics/${comicId}`, {
           method: 'DELETE'
         })
 

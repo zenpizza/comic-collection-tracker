@@ -343,7 +343,7 @@ function MissingIssues({ comics }) {
                     <div className="issue-card__cover">
                       {item.owned && item.comic ? (
                         <CoverImage
-                          comicId={item.comic.id}
+                          comicId={item.comic.comicMetadataId}
                           comic={item.comic}
                           size="thumbnail"
                           lazy={true}

@@ -6,6 +6,7 @@
 
 import imageStorage from './imageStorage.js'
 import imageCache from './imageCache.js'
+import { apiFetch } from './apiClient.js'
 
 class HybridImageStorage {
   constructor() {
@@ -180,7 +181,7 @@ class HybridImageStorage {
       const localImages = await imageStorage.getAllImages()
       
       // Get sync status from remote
-      const syncResponse = await fetch('/api/images/sync', {
+      const syncResponse = await apiFetch('/api/images/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -337,7 +338,7 @@ class HybridImageStorage {
    * Download image from remote storage
    */
   async downloadFromRemote(comicId) {
-    const response = await fetch(`/api/images/${comicId}?metadata=true`)
+    const response = await apiFetch(`/api/images/${comicId}?metadata=true`)
     if (!response.ok) {
       throw new Error(`Metadata fetch failed: ${response.statusText}`)
     }
@@ -349,7 +350,7 @@ class HybridImageStorage {
     const imageData = {}
 
     for (const size of sizes) {
-      const imageResponse = await fetch(`/api/images/${comicId}?size=${size}`)
+      const imageResponse = await apiFetch(`/api/images/${comicId}?size=${size}`)
       if (imageResponse.ok) {
         const blob = await imageResponse.blob()
         imageData[size] = {
@@ -374,7 +375,7 @@ class HybridImageStorage {
    * Delete image from remote storage
    */
   async deleteFromRemote(comicId) {
-    const response = await fetch(`/api/images/${comicId}`, {
+    const response = await apiFetch(`/api/images/${comicId}`, {
       method: 'DELETE'
     })
 
@@ -392,7 +393,7 @@ class HybridImageStorage {
   async fetchFromRemote(comicId, size) {
     // The API returns 302 redirect to CloudFront for S3 images
     // fetch() automatically follows redirects
-    const response = await fetch(`/api/images/${comicId}/${size}`)
+    const response = await apiFetch(`/api/images/${comicId}/${size}`)
     if (!response.ok) {
       return null
     }
@@ -430,7 +431,7 @@ class HybridImageStorage {
    */
   async checkForRemoteUpdates(comicId) {
     try {
-      const response = await fetch(`/api/images/${comicId}?metadata=true`)
+      const response = await apiFetch(`/api/images/${comicId}?metadata=true`)
       if (response.ok) {
         const remoteMetadata = await response.json()
         const localMetadata = await imageStorage.getMetadata(comicId)
@@ -480,7 +481,7 @@ class HybridImageStorage {
     let remoteStats = null
     if (!this.offlineMode) {
       try {
-        const response = await fetch('/api/images/stats')
+        const response = await apiFetch('/api/images/stats')
         if (response.ok) {
           const data = await response.json()
           remoteStats = data.stats

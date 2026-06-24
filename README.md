@@ -34,9 +34,12 @@ npm run dev:full
 
 Access the app at http://localhost:5173
 
+> **First time?** You'll need a [Clerk](https://clerk.com) account and API keys. Add them to `.env.development` — see [Local Development](docs/LOCAL_DEVELOPMENT.md#authentication-clerk).
+
 ### Prerequisites
 - Node.js 18+
 - Docker Desktop (for local MongoDB)
+- [Clerk account](https://clerk.com) (for authentication)
 - VPN disabled (ProtonVPN blocks MongoDB connections)
 
 ### Detailed Setup

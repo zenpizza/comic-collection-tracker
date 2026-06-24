@@ -17,6 +17,8 @@ import { storeCoverImages, getCoverImages } from '../db-image-storage.js'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { getS3Client } from '../s3-client.js'
 import { serializeS3Reference } from '../s3-serialization.js'
+import { requireAuth } from '../auth.js'
+import { userOwnsMetadata } from '../lib/userComics.js'
 
 let client
 let db
@@ -52,6 +54,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
+
+  if (!await requireAuth(req, res)) return
 
   if (req.method !== 'POST') {
     return res.status(405).json({
@@ -94,7 +98,17 @@ export default async function handler(req, res) {
         error: 'Missing required fields: comicId and image (file or imageUrl)'
       })
     }
-    
+
+    const database = await connectToDatabase()
+    const owned = ObjectId.isValid(comicId) &&
+      await userOwnsMetadata(database, { userId: req.userId, comicMetadataId: comicId })
+    if (!owned) {
+      return res.status(404).json({
+        success: false,
+        error: 'Comic not found in your collection'
+      })
+    }
+
     console.log(`[Upload] Starting upload for comic: ${comicId}`)
     console.log(`[Upload] Image buffer size: ${imageBuffer.length} bytes`)
     
@@ -155,25 +169,22 @@ export default async function handler(req, res) {
     
     console.log(`[Upload] Image upload successful for comic: ${comicId}, storage: ${storageType}`)
     
-    // Update the comic's hasCover flag
+    // Update the shared metadata's hasCover flag
     try {
-      const database = await connectToDatabase()
-      const comicsCollection = database.collection('comics')
-      
       if (ObjectId.isValid(comicId) && comicId.length === 24) {
         const updateFields = {
           hasCover: true,
           coverLastUpdated: new Date().toISOString()
         }
-        
+
         if (metadata.volumeId) {
           updateFields.volumeId = metadata.volumeId
         }
         if (metadata.volumeName) {
           updateFields.volumeName = metadata.volumeName
         }
-        
-        await comicsCollection.updateOne(
+
+        await database.collection('comicMetadata').updateOne(
           { _id: new ObjectId(comicId) },
           { $set: updateFields }
         )

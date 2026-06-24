@@ -1,10 +1,11 @@
 /**
- * ID cleanup endpoint - standardizes all comic IDs to numbers
- * POST /api/comics/cleanup-ids - Convert all string IDs to numbers
+ * Year cleanup endpoint - standardizes comicMetadata.year to numbers
+ * POST /api/comics/cleanup-ids - Convert string years to numbers
  */
 
 import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { requireAuth } from '../auth.js'
 
 let client
 let db
@@ -35,66 +36,27 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
   try {
     const database = await connectToDatabase()
-    const collection = database.collection('comics')
+    // Canonical comic data (and its year field) now lives in the shared
+    // comicMetadata collection — there is no separate numeric `id` field
+    // to clean up anymore; documents are identified by MongoDB ObjectId.
+    const collection = database.collection('comicMetadata')
 
-    // Find all comics with string IDs that can be converted to numbers
     const allComics = await collection.find({}).toArray()
-    console.log(`Found ${allComics.length} total comics to check`)
+    console.log(`Found ${allComics.length} total metadata records to check`)
 
     let convertedCount = 0
     const operations = []
 
     allComics.forEach(comic => {
-      if (comic.id !== undefined && comic.id !== null) {
-        const currentId = comic.id
-        const currentType = typeof currentId
-
-        // Try to convert to number if it's a string that represents a valid number
-        if (currentType === 'string' && !isNaN(currentId) && !isNaN(parseFloat(currentId))) {
-          const numericId = Number(currentId)
-
-          // Only convert if it's a safe integer and different from current value
-          if (Number.isSafeInteger(numericId) && numericId !== currentId) {
-            operations.push({
-              updateOne: {
-                filter: { _id: comic._id },
-                update: {
-                  $set: {
-                    id: numericId,
-                    updatedAt: new Date().toISOString()
-                  }
-                }
-              }
-            })
-            convertedCount++
-            console.log(`Converting ID: "${currentId}" (${currentType}) → ${numericId} (number)`)
-          }
-        }
-        // Convert numbers stored as strings back to numbers
-        else if (currentType === 'number' && String(currentId) !== currentId) {
-          // This handles cases where numbers might have been stored inconsistently
-          operations.push({
-            updateOne: {
-              filter: { _id: comic._id },
-              update: {
-                $set: {
-                  id: Number(currentId),
-                  updatedAt: new Date().toISOString()
-                }
-              }
-            }
-          })
-          convertedCount++
-        }
-      }
-
-      // Also normalize year field to number
+      // Normalize year field to number
       if (comic.year !== undefined && comic.year !== null && comic.year !== '') {
         const currentYearType = typeof comic.year
         if (currentYearType === 'string' && !isNaN(comic.year) && !isNaN(parseFloat(comic.year))) {
@@ -130,11 +92,6 @@ export default async function handler(req, res) {
 
     // Get final statistics
     const finalComics = await collection.find({}).toArray()
-    const idTypes = {
-      numbers: 0,
-      strings: 0,
-      other: 0
-    }
     const yearTypes = {
       numbers: 0,
       strings: 0,
@@ -143,19 +100,6 @@ export default async function handler(req, res) {
     }
 
     finalComics.forEach(comic => {
-      // Count ID types
-      if (comic.id !== undefined && comic.id !== null) {
-        const type = typeof comic.id
-        if (type === 'number') {
-          idTypes.numbers++
-        } else if (type === 'string') {
-          idTypes.strings++
-        } else {
-          idTypes.other++
-        }
-      }
-
-      // Count year types
       if (comic.year === undefined || comic.year === null || comic.year === '') {
         yearTypes.empty++
       } else {
@@ -172,11 +116,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: `ID cleanup completed: ${convertedCount} IDs converted to numbers`,
+      message: `Year cleanup completed: ${convertedCount} records converted to numeric years`,
       stats: {
         totalComics: allComics.length,
-        idsConverted: convertedCount,
-        finalIdTypes: idTypes,
+        yearsConverted: convertedCount,
         finalYearTypes: yearTypes
       },
       updateDetails: updateResult ? {

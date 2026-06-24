@@ -5,6 +5,8 @@
 
 import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { requireAuth } from '../auth.js'
+import { listCollection, removeFromCollection } from '../lib/userComics.js'
 
 let client
 let db
@@ -35,66 +37,56 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
   try {
     const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Find all comics
-    const allComics = await collection.find({}).toArray()
-    console.log(`Found ${allComics.length} total comics`)
 
-    // Group by series + issueNumber + publisher to find duplicates
+    // Duplicates within an account = multiple collection items pointing at
+    // the same shared comicMetadata record.
+    const allComics = await listCollection(database, req.userId)
+    console.log(`Found ${allComics.length} comics in this account's collection`)
+
     const comicGroups = {}
     const duplicates = []
     const unique = []
 
     allComics.forEach(comic => {
-      // Create a key for deduplication
-      const key = `${String(comic.series || '').toLowerCase().trim()}|${String(comic.issueNumber || '').toLowerCase().trim()}|${String(comic.publisher || '').toLowerCase().trim()}`
-      
+      const key = comic.comicMetadataId
       if (!comicGroups[key]) {
         comicGroups[key] = []
       }
       comicGroups[key].push(comic)
     })
 
-    // Process each group
     Object.values(comicGroups).forEach(group => {
       if (group.length > 1) {
-        // Keep the most recent one (by _id or dateAdded)
         const sorted = group.sort((a, b) => {
-          // Prefer comics with covers
-          if (a.hasCover && !b.hasCover) return -1
-          if (!a.hasCover && b.hasCover) return 1
-          
-          // Then by date added (most recent first)
+          // Prefer entries with notes (more likely to be the curated one)
+          if (a.notes && !b.notes) return -1
+          if (!a.notes && b.notes) return 1
+
           const dateA = new Date(a.dateAdded || a.createdAt || 0)
           const dateB = new Date(b.dateAdded || b.createdAt || 0)
           return dateB - dateA
         })
-        
-        unique.push(sorted[0]) // Keep the first (best) one
-        duplicates.push(...sorted.slice(1)) // Mark the rest as duplicates
+
+        unique.push(sorted[0])
+        duplicates.push(...sorted.slice(1))
       } else {
-        unique.push(group[0]) // Single comic, keep it
+        unique.push(group[0])
       }
     })
 
     console.log(`Found ${duplicates.length} duplicates to remove`)
     console.log(`Keeping ${unique.length} unique comics`)
 
-    // Delete duplicates
-    if (duplicates.length > 0) {
-      const duplicateIds = duplicates.map(comic => comic._id)
-      const deleteResult = await collection.deleteMany({
-        _id: { $in: duplicateIds }
-      })
-      
-      console.log(`Deleted ${deleteResult.deletedCount} duplicate records`)
+    for (const duplicate of duplicates) {
+      await removeFromCollection(database, { userId: req.userId, userComicId: duplicate.id })
     }
 
     return res.status(200).json({

@@ -7,6 +7,9 @@ import { MongoClient, ObjectId } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { getS3Client } from '../s3-client.js'
 import { isS3Reference } from '../s3-serialization.js'
+import { requireAuth } from '../auth.js'
+import { upsertItem, listCollection, removeFromCollection, countCollectionsReferencing } from '../lib/userComics.js'
+import { deleteCoverImages } from '../db-image-storage.js'
 
 let client
 let db
@@ -37,6 +40,8 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   if (req.method === 'DELETE') {
     return handleDeleteAll(req, res)
   }
@@ -47,7 +52,7 @@ export default async function handler(req, res) {
 
   try {
     const { comics } = req.body
-    
+
     if (!comics || !Array.isArray(comics)) {
       return res.status(400).json({
         success: false,
@@ -57,10 +62,10 @@ export default async function handler(req, res) {
 
     // Filter out invalid comics and normalize data types
     const validComics = comics
-      .filter(comic => 
-        comic && 
-        comic.series && 
-        comic.issueNumber !== undefined && 
+      .filter(comic =>
+        comic &&
+        comic.series &&
+        comic.issueNumber !== undefined &&
         comic.issueNumber !== null &&
         comic.issueNumber !== ""
       )
@@ -81,55 +86,30 @@ export default async function handler(req, res) {
     }
 
     const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Separate comics into updates (have _id) and inserts (new comics)
-    const operations = validComics.map(comic => {
-      // Remove id field and handle _id separately
-      const { _id, id, ...comicData } = comic
-      
-      // If comic has an _id, update it; otherwise insert new
-      if (_id) {
-        // Parse _id as ObjectId
-        const objectId = typeof _id === 'string' && ObjectId.isValid(_id) && _id.length === 24
-          ? new ObjectId(_id)
-          : _id
-        
-        return {
-          replaceOne: {
-            filter: { _id: objectId },
-            replacement: {
-              ...comicData,
-              updatedAt: new Date().toISOString()
-            },
-            upsert: true
-          }
-        }
+
+    let upsertedCount = 0
+    let modifiedCount = 0
+
+    for (const comic of validComics) {
+      const userComicId = comic.id || (comic._id ? String(comic._id) : null)
+      await upsertItem(database, { userId: req.userId, userComicId, comic })
+
+      if (userComicId) {
+        modifiedCount++
       } else {
-        // New comic - insert with auto-generated ObjectId
-        return {
-          insertOne: {
-            document: {
-              ...comicData,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }
-          }
-        }
+        upsertedCount++
       }
-    })
-    
-    const result = await collection.bulkWrite(operations)
-    
+    }
+
     const invalidCount = comics.length - validComics.length
-    
+
     return res.status(200).json({
       success: true,
-      message: `Comics saved to MongoDB: ${result.upsertedCount} new, ${result.modifiedCount} updated${invalidCount > 0 ? `, ${invalidCount} invalid comics skipped` : ''}`,
+      message: `Comics saved: ${upsertedCount} new, ${modifiedCount} updated${invalidCount > 0 ? `, ${invalidCount} invalid comics skipped` : ''}`,
       stats: {
-        upserted: result.upsertedCount,
-        modified: result.modifiedCount,
-        matched: result.matchedCount,
+        upserted: upsertedCount,
+        modified: modifiedCount,
+        matched: modifiedCount,
         invalid: invalidCount
       }
     })
@@ -155,30 +135,33 @@ async function handleDeleteAll(req, res) {
     }
 
     const database = await connectToDatabase()
-    const comicsCollection = database.collection('comics')
-    const coverImagesCollection = database.collection('cover_images')
 
-    // Delete S3 images for each comic that has S3 refs (best effort)
+    // Only this account's collection items are removed. Shared
+    // metadata/covers are cleaned up only once no account references them.
+    const items = await listCollection(database, req.userId)
     const s3Client = getS3Client()
-    if (s3Client.isConfigured()) {
-      const allComics = await comicsCollection.find({}, { projection: { _id: 1 } }).toArray()
-      for (const comic of allComics) {
+
+    for (const item of items) {
+      await removeFromCollection(database, { userId: req.userId, userComicId: item.id })
+
+      const remainingReferences = await countCollectionsReferencing(database, item.comicMetadataId)
+      if (remainingReferences === 0) {
         try {
-          await s3Client.deleteImages(comic._id.toString())
-        } catch (s3Error) {
-          console.warn(`[DeleteAll] S3 deletion warning for comic ${comic._id}:`, s3Error.message)
+          if (s3Client.isConfigured()) {
+            await s3Client.deleteImages(item.comicMetadataId)
+          }
+          await deleteCoverImages(item.comicMetadataId)
+        } catch (imageError) {
+          console.warn(`[DeleteAll] Image cleanup warning for metadata ${item.comicMetadataId}:`, imageError.message)
         }
+        await database.collection('comicMetadata').deleteOne({ _id: new ObjectId(item.comicMetadataId) })
       }
     }
 
-    // Wipe cover_images and comics collections
-    await coverImagesCollection.deleteMany({})
-    const result = await comicsCollection.deleteMany({})
-
     return res.status(200).json({
       success: true,
-      message: `Deleted ${result.deletedCount} comics from the collection`,
-      deletedCount: result.deletedCount
+      message: `Deleted ${items.length} comics from your collection`,
+      deletedCount: items.length
     })
   } catch (error) {
     console.error('Error deleting all comics:', error)

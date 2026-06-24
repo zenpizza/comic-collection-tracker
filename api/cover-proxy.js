@@ -3,6 +3,8 @@
  * Handles CORS limitations and API key security
  */
 
+import { requireAuth } from './auth.js'
+
 /**
  * Comic Vine API proxy endpoint
  */
@@ -390,6 +392,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
+
+  if (!await requireAuth(req, res)) return
 
   try {
     const url = new URL(req.url, `http://${req.headers.host}`)

@@ -155,7 +155,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
       const { default: coverUpdateService } = await import('../utils/coverUpdateService.js')
       
       const result = await coverUpdateService.addCover(
-        comic.id,
+        comic.comicMetadataId,
         coverData.blob,
         metadata
       )
@@ -198,9 +198,9 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
       
       // Handle cover removal
       if (uploadData.removed) {
-        console.log('Removing cover for comic:', comic.id)
-        
-        const result = await coverUpdateService.removeCover(comic.id)
+        console.log('Removing cover for comic:', comic.comicMetadataId)
+
+        const result = await coverUpdateService.removeCover(comic.comicMetadataId)
         
         const updatedComic = {
           ...comic,
@@ -239,7 +239,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
       await onSave(updatedComic)
       
       // Clear cache
-      await ImageURLService.clearCache(comic.id)
+      await ImageURLService.clearCache(comic.comicMetadataId)
       console.log('Cache invalidated successfully')
       
       // Force CoverImage to remount and re-fetch
@@ -260,12 +260,12 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
     const confirmed = window.confirm('Are you sure you want to delete this cover image?')
     if (confirmed) {
       try {
-        console.log('Deleting cover for comic:', comic.id)
-        
+        console.log('Deleting cover for comic:', comic.comicMetadataId)
+
         // Use centralized cover update service
         const { default: coverUpdateService } = await import('../utils/coverUpdateService.js')
-        
-        const result = await coverUpdateService.removeCover(comic.id)
+
+        const result = await coverUpdateService.removeCover(comic.comicMetadataId)
         
         // Update comic metadata to remove cover references
         const updatedComic = {
@@ -310,7 +310,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
             >
               <CoverImage
                 key={`${comic.id}-${coverRefreshKey}`}
-                comicId={comic.id}
+                comicId={comic.comicMetadataId}
                 comic={comic}
                 size="full"
                 lazy={false}
@@ -600,7 +600,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                 ×
               </button>
               <CoverUploader
-                comicId={comic.id}
+                comicId={comic.comicMetadataId}
                 currentCover={comic.coverUrl}
                 onUploadComplete={handleCoverUpdate}
                 onUploadError={(error) => {
@@ -662,7 +662,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
             </button>
             <div className="full-size-image-container">
               <CoverImage
-                comicId={comic.id}
+                comicId={comic.comicMetadataId}
                 comic={comic}
                 size="full"
                 lazy={false}

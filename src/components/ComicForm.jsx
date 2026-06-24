@@ -8,6 +8,7 @@ import CoverAPISettings from './CoverAPISettings'
 import imagePipeline from '../utils/imagePipeline'
 import coverAPIService from '../utils/coverAPIService'
 import coverMetadataService from '../utils/coverMetadataService'
+import { apiFetch } from '../utils/apiClient'
 import './ComicForm.css'
 
 function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existingComics = [] }) {
@@ -262,14 +263,38 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       const { parseIssueForSearch } = await import('../utils/issueParser')
       const { series: searchSeries, issue: searchIssue } = parseIssueForSearch(formData.series, formData.issueNumber)
       
-      console.log('Searching for covers:', { 
-        series: searchSeries, 
-        issue: searchIssue, 
+      console.log('Searching for covers:', {
+        series: searchSeries,
+        issue: searchIssue,
         publisher: formData.publisher,
         year: formData.year,
         original: { series: formData.series, issue: formData.issueNumber }
       })
-      
+
+      // Another account may have already added this issue — reuse its
+      // cached metadata/cover instead of calling ComicVine again.
+      const lookupParams = new URLSearchParams({
+        series: searchSeries,
+        issueNumber: searchIssue,
+        publisher: formData.publisher || '',
+        variant: formData.variant || ''
+      })
+      const lookupResponse = await apiFetch(`/api/comics/metadata-lookup?${lookupParams}`)
+      const lookupResult = lookupResponse.ok ? await lookupResponse.json() : null
+
+      if (lookupResult?.metadata?.hasCover) {
+        console.log('Found existing shared cover, skipping ComicVine search:', lookupResult.metadata)
+        if (lookupResult.metadata.volumeName) {
+          setFormData(prev => ({
+            ...prev,
+            volumeId: lookupResult.metadata.volumeId || '',
+            volumeName: lookupResult.metadata.volumeName || ''
+          }))
+        }
+        setCoverError(null)
+        return
+      }
+
       const results = await coverAPIService.searchCovers(
         searchSeries,
         searchIssue,

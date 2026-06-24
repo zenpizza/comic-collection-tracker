@@ -13,6 +13,8 @@ import { getCoverImages, deleteCoverImages } from '../db-image-storage.js'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { getS3Client } from '../s3-client.js'
 import { isS3Reference, isLegacyReference } from '../s3-serialization.js'
+import { requireAuth } from '../auth.js'
+import { userOwnsMetadata } from '../lib/userComics.js'
 
 let client
 let db
@@ -43,6 +45,8 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   const { comicId, size, metadata } = req.query
 
   if (!comicId) {
@@ -53,6 +57,16 @@ export default async function handler(req, res) {
   }
 
   try {
+    const database = await connectToDatabase()
+    const owned = ObjectId.isValid(comicId) &&
+      await userOwnsMetadata(database, { userId: req.userId, comicMetadataId: comicId })
+    if (!owned) {
+      return res.status(404).json({
+        success: false,
+        error: 'Image not found'
+      })
+    }
+
     switch (req.method) {
       case 'GET':
         if (metadata === 'true') {
@@ -310,17 +324,16 @@ async function handleDeleteImage(req, res, comicId) {
       throw mongoError
     }
     
-    // Update the comic's hasCover flag
+    // Update the shared metadata's hasCover flag
     try {
       const database = await connectToDatabase()
-      const comicsCollection = database.collection('comics')
-      
+
       if (ObjectId.isValid(comicId) && comicId.length === 24) {
-        await comicsCollection.updateOne(
+        await database.collection('comicMetadata').updateOne(
           { _id: new ObjectId(comicId) },
           { $set: { hasCover: false, coverLastUpdated: new Date().toISOString() } }
         )
-        console.log(`[Image API] Updated hasCover flag to false for comic: ${comicId}`)
+        console.log(`[Image API] Updated hasCover flag to false for metadata: ${comicId}`)
       }
     } catch (error) {
       console.warn(`[Image API] Failed to update hasCover flag:`, error.message)

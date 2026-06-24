@@ -2,8 +2,12 @@
  * Comics API endpoint - handles all comic operations with MongoDB
  */
 
-import { MongoClient, ObjectId } from 'mongodb'
+import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from './config.js'
+import { requireAuth } from './auth.js'
+import { getOrCreateAccount } from './lib/accounts.js'
+import { findOrCreateComicMetadata } from './lib/comicMetadata.js'
+import { addToCollection, listCollection } from './lib/userComics.js'
 
 let client
 let db
@@ -41,6 +45,8 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   try {
     switch (req.method) {
       case 'GET':
@@ -62,34 +68,12 @@ export default async function handler(req, res) {
 async function handleGetComics(req, res) {
   try {
     const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Filter out comics with missing required fields
-    const comics = await collection.find({
-      series: { $exists: true, $ne: null, $ne: "" },
-      issueNumber: { $exists: true, $ne: null, $ne: "" }
-    }).toArray()
-    
-    // Additional client-side filtering and data normalization
-    const validComics = comics
-      .filter(comic => 
-        comic.series && 
-        comic.issueNumber !== undefined && 
-        comic.issueNumber !== null &&
-        comic.issueNumber !== ""
-      )
-      .map(comic => ({
-        ...comic,
-        // Convert ObjectId to string for frontend
-        id: comic._id.toString(),
-        // Ensure issueNumber is always a string for frontend compatibility
-        issueNumber: String(comic.issueNumber),
-        // Ensure series is always a string
-        series: String(comic.series),
-        // Ensure hasCover is a boolean (default to false if not set)
-        hasCover: comic.hasCover === true
-      }))
-    
+
+    // Lazily create the account record on first authenticated request
+    await getOrCreateAccount(database, { userId: req.userId, email: req.userEmail })
+
+    const validComics = await listCollection(database, req.userId)
+
     return res.status(200).json({
       success: true,
       comics: validComics
@@ -196,32 +180,40 @@ async function handleCreateComic(req, res) {
     }
 
     const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Normalize data types for consistency
-    // Remove any existing _id or id to let MongoDB generate ObjectId
-    const { _id, id, ...comicData } = comic
-    
-    const normalizedComic = {
-      ...comicData,
-      series: String(comic.series || ''),
-      issueNumber: String(comic.issueNumber || ''),
-      publisher: comic.publisher ? String(comic.publisher) : comic.publisher,
-      year: comic.year && !isNaN(comic.year) ? Number(comic.year) : comic.year,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-    
-    // MongoDB will auto-generate ObjectId for _id
-    const result = await collection.insertOne(normalizedComic)
-    
+
+    const metadata = await findOrCreateComicMetadata(database, {
+      series: comic.series,
+      issueNumber: comic.issueNumber,
+      publisher: comic.publisher,
+      year: comic.year,
+      variant: comic.variant,
+      volumeId: comic.volumeId,
+      volumeName: comic.volumeName,
+    })
+
+    const item = await addToCollection(database, {
+      userId: req.userId,
+      comicMetadataId: metadata._id,
+      notes: comic.notes,
+      dateAdded: comic.dateAdded,
+    })
+
     return res.status(201).json({
       success: true,
-      comic: { 
-        ...normalizedComic, 
-        _id: result.insertedId,
-        // Convert ObjectId to string for frontend
-        id: result.insertedId.toString()
+      comic: {
+        id: item._id.toString(),
+        comicMetadataId: metadata._id.toString(),
+        series: metadata.series,
+        issueNumber: metadata.issueNumber,
+        publisher: metadata.publisher,
+        year: metadata.year,
+        variant: metadata.variant,
+        volumeId: metadata.volumeId,
+        volumeName: metadata.volumeName,
+        hasCover: metadata.hasCover,
+        coverLastUpdated: metadata.coverLastUpdated,
+        notes: item.notes,
+        dateAdded: item.dateAdded,
       },
       message: 'Comic created successfully'
     })

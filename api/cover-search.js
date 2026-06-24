@@ -3,6 +3,8 @@
  * Updated: 2025-11-12 - Using /issues/ endpoint for better reliability
  */
 
+import { requireAuth } from './auth.js'
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -12,6 +14,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
+
+  if (!await requireAuth(req, res)) return
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })

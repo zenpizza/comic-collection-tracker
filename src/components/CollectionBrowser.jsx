@@ -315,7 +315,7 @@ function CollectionBrowser({ comics }) {
                             </div>
                           ) : (
                             <CoverImage
-                              comicId={item.comic.id}
+                              comicId={item.comic.comicMetadataId}
                               comic={item.comic}
                               size="medium"
                               lazy={false}

@@ -4,6 +4,8 @@
  * Handles all image upload operations with consistent error handling
  */
 
+import { apiFetch } from './apiClient.js'
+
 class ImageUploadClient {
   constructor() {
     this.uploadEndpoint = '/api/images/upload'
@@ -74,7 +76,7 @@ class ImageUploadClient {
       }
 
       try {
-        const response = await fetch(this.uploadEndpoint, fetchOptions)
+        const response = await apiFetch(this.uploadEndpoint, fetchOptions)
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({
@@ -371,7 +373,7 @@ class ImageUploadClient {
    */
   async checkAvailability() {
     try {
-      const response = await fetch(this.uploadEndpoint, {
+      const response = await apiFetch(this.uploadEndpoint, {
         method: 'OPTIONS'
       })
       return response.ok

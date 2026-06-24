@@ -12,6 +12,8 @@ dist/
 .env.production
 .env.development
 .env*.local
+*.swp
+*.swo
 
 # Vercel
 .vercel

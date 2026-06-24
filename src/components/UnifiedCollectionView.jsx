@@ -368,7 +368,7 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
                         </div>
                       ) : (
                         <CoverImage
-                          comicId={item.comic.id}
+                          comicId={item.comic.comicMetadataId}
                           comic={item.comic}
                           size="medium"
                           lazy={true}
