@@ -57,12 +57,13 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
   // Auto-fetch covers when series and issue are filled
   useEffect(() => {
-    if (autoFetchEnabled && 
-        formData.series && 
-        formData.issueNumber && 
-        !coverData && 
-        !isSearchingCovers) {
-      
+    if (autoFetchEnabled &&
+        formData.series &&
+        formData.issueNumber &&
+        !coverData &&
+        !isSearchingCovers &&
+        !showCoverSelector) {
+
       // Debounce the search to avoid too many API calls
       const searchTimeout = setTimeout(() => {
         searchForCovers()
@@ -70,7 +71,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
       return () => clearTimeout(searchTimeout)
     }
-  }, [formData.series, formData.issueNumber, formData.publisher, autoFetchEnabled, coverData, isSearchingCovers])
+  }, [formData.series, formData.issueNumber, formData.publisher, autoFetchEnabled, coverData, isSearchingCovers, showCoverSelector])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
