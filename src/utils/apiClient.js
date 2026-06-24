@@ -45,8 +45,12 @@ export async function apiFetch(url, options = {}) {
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  // Don't force Content-Type for FormData — the browser sets it with the boundary
-  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+  // Only set Content-Type when there's an actual body to send — a bodyless
+  // GET doesn't need one, and some of our endpoints (e.g. /api/images/[id])
+  // 302-redirect to a cross-origin CDN (CloudFront). A custom header like
+  // this would get carried into that cross-origin redirect and force a
+  // CORS preflight the CDN doesn't support, breaking the redirect entirely.
+  if (options.body !== undefined && !(options.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json'
   }
 
