@@ -188,7 +188,7 @@ function CoverGallery({
                   aria-label={`View details for ${comic.series} issue ${comic.issueNumber}`}
                 >
                   <CoverImage
-                    comicId={comic.comicMetadataId}
+                    comicId={comic.id}
                     comic={comic}
                     size="medium"
                     lazy={true}

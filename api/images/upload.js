@@ -13,12 +13,13 @@
 import Busboy from 'busboy'
 import sharp from 'sharp'
 import { MongoClient, ObjectId } from 'mongodb'
-import { storeCoverImages, getCoverImages } from '../db-image-storage.js'
+import { storeCoverImages } from '../db-image-storage.js'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { getS3Client } from '../s3-client.js'
 import { serializeS3Reference } from '../s3-serialization.js'
 import { requireAuth } from '../auth.js'
-import { userOwnsMetadata } from '../lib/userComics.js'
+import { getComic, attachCoverAsset } from '../lib/comics.js'
+import { createAsset, findAssetByIdentityKey } from '../lib/coverAssets.js'
 
 let client
 let db
@@ -100,9 +101,10 @@ export default async function handler(req, res) {
     }
 
     const database = await connectToDatabase()
-    const owned = ObjectId.isValid(comicId) &&
-      await userOwnsMetadata(database, { userId: req.userId, comicMetadataId: comicId })
-    if (!owned) {
+    const comic = ObjectId.isValid(comicId)
+      ? await getComic(database, { userId: req.userId, comicId })
+      : null
+    if (!comic) {
       return res.status(404).json({
         success: false,
         error: 'Comic not found in your collection'
@@ -111,41 +113,48 @@ export default async function handler(req, res) {
 
     console.log(`[Upload] Starting upload for comic: ${comicId}`)
     console.log(`[Upload] Image buffer size: ${imageBuffer.length} bytes`)
-    
-    // Check if this is a replacement (existing cover)
-    const existingCover = await getCoverImages(comicId)
-    const isReplacement = existingCover && existingCover.images
-    
+
+    const isReplacement = !!comic.coverAssetId
+
     // Process image into size variants using sharp
     const processedBuffers = await processImageBuffers(imageBuffer)
-    
+
     console.log(`[Upload] Processed images:`, {
       sizes: Object.keys(processedBuffers),
       totalSize: Object.values(processedBuffers).reduce((sum, buf) => sum + buf.length, 0)
     })
-    
+
+    // The uploaded bytes always become a new asset (the user explicitly
+    // chose this image) — only claim the shared identityKey if nobody has
+    // claimed it yet, so a future account adding this issue can reuse it.
+    // Replacing an existing cover always creates a private asset
+    // (identityKey: null) so other accounts' covers are unaffected
+    // (copy-on-write).
+    let claimIdentityKey = null
+    if (!isReplacement) {
+      const existingSharedAsset = await findAssetByIdentityKey(database, comic.identityKey)
+      claimIdentityKey = existingSharedAsset ? null : comic.identityKey
+    }
+
+    const assetId = new ObjectId()
+    const storageKey = assetId.toString()
+
     // Try S3 upload first, fall back to MongoDB
     const s3Client = getS3Client()
     let storageType = 'MongoDB'
     let imageData = {}
-    
+
     if (s3Client.isConfigured()) {
       console.log(`[Upload] S3 configured, uploading to S3...`)
       storageType = 'S3'
-      
+
       // Upload all size variants to S3
       for (const [sizeName, buffer] of Object.entries(processedBuffers)) {
         if (sizeName === 'original') continue // Skip original for S3
-        
-        const s3Ref = await s3Client.uploadImage(comicId, sizeName, buffer, 'image/jpeg')
+
+        const s3Ref = await s3Client.uploadImage(storageKey, sizeName, buffer, 'image/jpeg')
         imageData[sizeName] = serializeS3Reference(s3Ref)
         console.log(`[Upload] Uploaded ${sizeName} to S3: ${s3Ref.key}`)
-      }
-      
-      // Invalidate CloudFront cache if this is a replacement
-      if (isReplacement) {
-        console.log(`[Upload] Replacement detected, invalidating CloudFront cache...`)
-        await s3Client.invalidateCache(comicId)
       }
     } else {
       console.log(`[Upload] S3 not configured, using MongoDB storage`)
@@ -158,46 +167,39 @@ export default async function handler(req, res) {
         }
       }
     }
-    
-    // Store references/data in MongoDB
-    const result = await storeCoverImages(comicId, imageData, {
+
+    // Store the actual bytes/refs keyed by the new asset id
+    await storeCoverImages(storageKey, imageData, {
       source: metadata?.source || 'upload',
       ...metadata,
       storageType,
       uploadedAt: new Date().toISOString()
     })
-    
-    console.log(`[Upload] Image upload successful for comic: ${comicId}, storage: ${storageType}`)
-    
-    // Update the shared metadata's hasCover flag
-    try {
-      if (ObjectId.isValid(comicId) && comicId.length === 24) {
-        const updateFields = {
-          hasCover: true,
-          coverLastUpdated: new Date().toISOString()
-        }
 
-        if (metadata.volumeId) {
-          updateFields.volumeId = metadata.volumeId
-        }
-        if (metadata.volumeName) {
-          updateFields.volumeName = metadata.volumeName
-        }
+    // Register the asset (identity + reuse layer) and point only this
+    // account's comic at it
+    const asset = await createAsset(database, { _id: assetId, identityKey: claimIdentityKey })
+    await attachCoverAsset(database, { userId: req.userId, comicId, assetId: asset._id })
 
-        await database.collection('comicMetadata').updateOne(
-          { _id: new ObjectId(comicId) },
-          { $set: updateFields }
-        )
-        console.log(`[Upload] Updated comic metadata for: ${comicId}`, updateFields)
-      }
-    } catch (error) {
-      console.warn(`[Upload] Failed to update hasCover flag:`, error.message)
+    // Volume info from the cover search result, if any — purely
+    // informational, so this doesn't touch identityKey/coverAssetId
+    if (metadata.volumeId || metadata.volumeName) {
+      await database.collection('comics').updateOne(
+        { _id: new ObjectId(comicId), userId: req.userId },
+        { $set: {
+          ...(metadata.volumeId && { volumeId: metadata.volumeId }),
+          ...(metadata.volumeName && { volumeName: metadata.volumeName }),
+          updatedAt: new Date().toISOString(),
+        } }
+      )
     }
-    
+
+    console.log(`[Upload] Image upload successful for comic: ${comicId}, storage: ${storageType}`)
+
     return res.status(200).json({
       success: true,
-      imageId: result,
-      comicId: comicId,
+      comicId,
+      coverAssetId: asset._id.toString(),
       storage: storageType,
       message: 'Image uploaded successfully'
     })

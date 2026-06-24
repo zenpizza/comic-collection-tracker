@@ -91,6 +91,11 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       comicData.coverData = coverData
       comicData.hasCover = true
       comicData.coverSource = coverData.metadata?.source || 'upload'
+      // ComicVine's issue id, when known, is a stronger identity than the
+      // series/issue/publisher text composite (see buildIdentityKey)
+      if (coverData.metadata?.apiId && coverData.metadata?.source === 'api') {
+        comicData.comicVineId = coverData.metadata.apiId
+      }
       
       // Store cover metadata for source tracking
       if (coverData.metadata) {

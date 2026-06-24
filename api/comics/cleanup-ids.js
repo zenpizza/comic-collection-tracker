@@ -1,5 +1,5 @@
 /**
- * Year cleanup endpoint - standardizes comicMetadata.year to numbers
+ * Year cleanup endpoint - standardizes comics.year to numbers
  * POST /api/comics/cleanup-ids - Convert string years to numbers
  */
 
@@ -44,13 +44,13 @@ export default async function handler(req, res) {
 
   try {
     const database = await connectToDatabase()
-    // Canonical comic data (and its year field) now lives in the shared
-    // comicMetadata collection — there is no separate numeric `id` field
-    // to clean up anymore; documents are identified by MongoDB ObjectId.
-    const collection = database.collection('comicMetadata')
+    // There is no separate numeric `id` field to clean up anymore —
+    // documents are identified by MongoDB ObjectId. This now only
+    // normalizes the year field's type.
+    const collection = database.collection('comics')
 
-    const allComics = await collection.find({}).toArray()
-    console.log(`Found ${allComics.length} total metadata records to check`)
+    const allComics = await collection.find({ userId: req.userId }).toArray()
+    console.log(`Found ${allComics.length} comics in this account's collection to check`)
 
     let convertedCount = 0
     const operations = []
@@ -91,7 +91,7 @@ export default async function handler(req, res) {
     }
 
     // Get final statistics
-    const finalComics = await collection.find({}).toArray()
+    const finalComics = await collection.find({ userId: req.userId }).toArray()
     const yearTypes = {
       numbers: 0,
       strings: 0,

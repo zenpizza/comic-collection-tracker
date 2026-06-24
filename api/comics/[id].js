@@ -1,22 +1,14 @@
 /**
  * RESTful endpoint for individual comic operations
  * GET /api/comics/[id] - Get a specific comic
- * PUT /api/comics/[id] - Update a specific comic  
+ * PUT /api/comics/[id] - Update a specific comic
  * DELETE /api/comics/[id] - Delete a specific comic
  */
 
 import { MongoClient, ObjectId } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
-import { getCoverImages, deleteCoverImages } from '../db-image-storage.js'
-import { getS3Client } from '../s3-client.js'
-import { isS3Reference } from '../s3-serialization.js'
 import { requireAuth } from '../auth.js'
-import {
-  getCollectionItem,
-  removeFromCollection,
-  countCollectionsReferencing,
-  upsertItem,
-} from '../lib/userComics.js'
+import { getComic, updateComic, removeComic, DuplicateComicError } from '../lib/comics.js'
 
 let client
 let db
@@ -72,7 +64,7 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error('Comic API Error:', error)
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Internal server error',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
@@ -89,35 +81,16 @@ async function handleGetComic(req, res, id) {
     }
 
     const database = await connectToDatabase()
-    const item = await getCollectionItem(database, { userId: req.userId, userComicId: id })
+    const comic = await getComic(database, { userId: req.userId, comicId: id })
 
-    if (!item) {
+    if (!comic) {
       return res.status(404).json({
         success: false,
         error: 'Comic not found'
       })
     }
 
-    const metadata = await database.collection('comicMetadata').findOne({ _id: item.comicMetadataId })
-
-    return res.status(200).json({
-      success: true,
-      comic: {
-        id: item._id.toString(),
-        comicMetadataId: metadata._id.toString(),
-        series: String(metadata.series || ''),
-        issueNumber: String(metadata.issueNumber || ''),
-        publisher: metadata.publisher,
-        year: metadata.year,
-        variant: metadata.variant,
-        volumeId: metadata.volumeId,
-        volumeName: metadata.volumeName,
-        hasCover: metadata.hasCover,
-        coverLastUpdated: metadata.coverLastUpdated,
-        notes: item.notes,
-        dateAdded: item.dateAdded
-      }
-    })
+    return res.status(200).json({ success: true, comic })
   } catch (error) {
     console.error('Error fetching comic:', error)
     return res.status(500).json({
@@ -147,23 +120,21 @@ async function handleUpdateComic(req, res, id) {
     }
 
     const database = await connectToDatabase()
-    const existing = await getCollectionItem(database, { userId: req.userId, userComicId: id })
-
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        error: 'Comic not found'
-      })
-    }
-
-    const updatedComic = await upsertItem(database, { userId: req.userId, userComicId: id, comic })
+    const updated = await updateComic(database, { userId: req.userId, comicId: id, updates: comic })
 
     return res.status(200).json({
       success: true,
-      comic: updatedComic,
+      comic: updated,
       message: 'Comic updated successfully'
     })
   } catch (error) {
+    if (error instanceof DuplicateComicError) {
+      return res.status(409).json({ success: false, error: error.message })
+    }
+    if (error.message === 'Comic not found in this account\'s collection') {
+      return res.status(404).json({ success: false, error: 'Comic not found' })
+    }
+
     console.error('Error updating comic:', error)
     return res.status(500).json({
       success: false,
@@ -183,46 +154,18 @@ async function handleDeleteComic(req, res, id) {
     }
 
     const database = await connectToDatabase()
-    const item = await getCollectionItem(database, { userId: req.userId, userComicId: id })
+    const deleted = await removeComic(database, { userId: req.userId, comicId: id })
 
-    if (!item) {
+    if (!deleted) {
       return res.status(404).json({
         success: false,
         error: 'Comic not found'
       })
     }
 
-    const comicMetadataId = item.comicMetadataId.toString()
-
-    await removeFromCollection(database, { userId: req.userId, userComicId: id })
-
-    // The cover/metadata is shared — only clean it up once no account
-    // references it anymore.
-    const remainingReferences = await countCollectionsReferencing(database, comicMetadataId)
-    if (remainingReferences === 0) {
-      try {
-        const coverData = await getCoverImages(comicMetadataId)
-        const hasS3Refs = coverData?.images &&
-          Object.values(coverData.images).some(img => isS3Reference(img))
-
-        const s3Client = getS3Client()
-        if (s3Client.isConfigured() && hasS3Refs) {
-          try {
-            await s3Client.deleteImages(comicMetadataId)
-            console.log(`[Comic Delete] Deleted S3 images for metadata: ${comicMetadataId}`)
-          } catch (s3Error) {
-            console.warn(`[Comic Delete] S3 deletion warning for metadata ${comicMetadataId}:`, s3Error.message)
-          }
-        }
-
-        await deleteCoverImages(comicMetadataId)
-        console.log(`[Comic Delete] Deleted cover images from MongoDB for metadata: ${comicMetadataId}`)
-      } catch (imageError) {
-        console.warn(`Failed to delete cover images for metadata ${comicMetadataId}:`, imageError)
-      }
-
-      await database.collection('comicMetadata').deleteOne({ _id: item.comicMetadataId })
-    }
+    // Shared cover assets are intentionally left in place — see COM-45
+    // (garbage collection is deferred; an asset with no remaining
+    // references is harmless to leave around for now).
 
     return res.status(200).json({
       success: true,

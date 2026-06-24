@@ -6,7 +6,7 @@
 import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { requireAuth } from '../auth.js'
-import { listCollection } from '../lib/userComics.js'
+import { listComics } from '../lib/comics.js'
 
 let client
 let db
@@ -46,9 +46,8 @@ export default async function handler(req, res) {
   try {
     const database = await connectToDatabase()
 
-    // Scoped to this account's collection only — shared metadata is not
-    // aggregated across accounts.
-    const comics = await listCollection(database, req.userId)
+    // Scoped to this account's collection only.
+    const comics = await listComics(database, req.userId)
 
     const countBy = (key) => comics.reduce((acc, comic) => {
       const value = comic[key] || 'unknown'

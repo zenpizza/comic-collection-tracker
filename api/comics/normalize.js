@@ -44,13 +44,10 @@ export default async function handler(req, res) {
 
   try {
     const database = await connectToDatabase()
-    // Canonical fields (series/issueNumber/publisher/year) live in the
-    // shared comicMetadata collection now — normalizing them benefits
-    // every account that references a given record.
-    const collection = database.collection('comicMetadata')
+    const collection = database.collection('comics')
 
-    const allComics = await collection.find({}).toArray()
-    console.log(`Found ${allComics.length} total metadata records to check`)
+    const allComics = await collection.find({ userId: req.userId }).toArray()
+    console.log(`Found ${allComics.length} comics in this account's collection to check`)
 
     let normalizedCount = 0
     const operations = []
@@ -124,12 +121,9 @@ export default async function handler(req, res) {
       console.log(`Updated ${updateResult.modifiedCount} records`)
     }
 
-    // Note: deduplication is no longer run here. Shared comicMetadata
-    // records are deduplicated atomically at write time (findOrCreateComicMetadata
-    // upserts by dedupeKey), so blindly deleting "duplicate" metadata records
-    // here could orphan other accounts' userComics references to them.
-    // Account-level duplicates (the same account referencing the same
-    // metadata twice) are handled by POST /api/comics/dedupe instead.
+    // Note: deduplication is no longer run here. The unique
+    // {userId, identityKey} index prevents new duplicates at write time;
+    // any pre-existing duplicates are handled by POST /api/comics/dedupe.
 
     return res.status(200).json({
       success: true,

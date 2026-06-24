@@ -302,7 +302,7 @@ function BulkCoverManager({ comics, isVisible, onClose, onCoverUpdate, initialFi
       // Download the cover image
       const imageBlob = await coverAPIService.downloadCover(
         selectedCover.imageUrl,
-        comic.comicMetadataId
+        comic.id
       )
 
       // Use centralized cover update service
@@ -313,7 +313,7 @@ function BulkCoverManager({ comics, isVisible, onClose, onCoverUpdate, initialFi
       })
       
       const result = await coverUpdateService.addCover(
-        comic.comicMetadataId,
+        comic.id,
         imageBlob,
         {
           source: 'api',
@@ -374,7 +374,7 @@ function BulkCoverManager({ comics, isVisible, onClose, onCoverUpdate, initialFi
       try {
         // Remove existing cover first
         if (comic.coverUrl) {
-          await imageStorageManager.deleteImage(comic.comicMetadataId)
+          await imageStorageManager.deleteImage(comic.id)
         }
 
         // Fetch new cover
@@ -427,7 +427,7 @@ function BulkCoverManager({ comics, isVisible, onClose, onCoverUpdate, initialFi
 
       try {
         // Use centralized cover update service
-        const result = await coverUpdateService.removeCover(comic.comicMetadataId)
+        const result = await coverUpdateService.removeCover(comic.id)
         
         results.push({
           comic,
@@ -585,7 +585,7 @@ function BulkCoverManager({ comics, isVisible, onClose, onCoverUpdate, initialFi
   const getImageDataForAssessment = async (comic) => {
     try {
       // Try to get actual image data from storage
-      const imageResult = await imageStorageManager.getImage(comic.comicMetadataId, 'full')
+      const imageResult = await imageStorageManager.getImage(comic.id, 'full')
       
       if (imageResult?.url) {
         // Create a temporary image to get dimensions

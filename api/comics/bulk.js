@@ -3,13 +3,10 @@
  * POST /api/comics/bulk - Bulk create/update comics
  */
 
-import { MongoClient, ObjectId } from 'mongodb'
+import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
-import { getS3Client } from '../s3-client.js'
-import { isS3Reference } from '../s3-serialization.js'
 import { requireAuth } from '../auth.js'
-import { upsertItem, listCollection, removeFromCollection, countCollectionsReferencing } from '../lib/userComics.js'
-import { deleteCoverImages } from '../db-image-storage.js'
+import { addComic, updateComic, DuplicateComicError } from '../lib/comics.js'
 
 let client
 let db
@@ -89,15 +86,25 @@ export default async function handler(req, res) {
 
     let upsertedCount = 0
     let modifiedCount = 0
+    let duplicateCount = 0
 
     for (const comic of validComics) {
-      const userComicId = comic.id || (comic._id ? String(comic._id) : null)
-      await upsertItem(database, { userId: req.userId, userComicId, comic })
+      const comicId = comic.id || (comic._id ? String(comic._id) : null)
 
-      if (userComicId) {
-        modifiedCount++
-      } else {
-        upsertedCount++
+      try {
+        if (comicId) {
+          await updateComic(database, { userId: req.userId, comicId, updates: comic })
+          modifiedCount++
+        } else {
+          await addComic(database, { userId: req.userId, comic })
+          upsertedCount++
+        }
+      } catch (error) {
+        if (error instanceof DuplicateComicError) {
+          duplicateCount++
+          continue
+        }
+        throw error
       }
     }
 
@@ -105,11 +112,12 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: `Comics saved: ${upsertedCount} new, ${modifiedCount} updated${invalidCount > 0 ? `, ${invalidCount} invalid comics skipped` : ''}`,
+      message: `Comics saved: ${upsertedCount} new, ${modifiedCount} updated${duplicateCount > 0 ? `, ${duplicateCount} duplicates skipped` : ''}${invalidCount > 0 ? `, ${invalidCount} invalid comics skipped` : ''}`,
       stats: {
         upserted: upsertedCount,
         modified: modifiedCount,
         matched: modifiedCount,
+        duplicate: duplicateCount,
         invalid: invalidCount
       }
     })
@@ -136,32 +144,14 @@ async function handleDeleteAll(req, res) {
 
     const database = await connectToDatabase()
 
-    // Only this account's collection items are removed. Shared
-    // metadata/covers are cleaned up only once no account references them.
-    const items = await listCollection(database, req.userId)
-    const s3Client = getS3Client()
-
-    for (const item of items) {
-      await removeFromCollection(database, { userId: req.userId, userComicId: item.id })
-
-      const remainingReferences = await countCollectionsReferencing(database, item.comicMetadataId)
-      if (remainingReferences === 0) {
-        try {
-          if (s3Client.isConfigured()) {
-            await s3Client.deleteImages(item.comicMetadataId)
-          }
-          await deleteCoverImages(item.comicMetadataId)
-        } catch (imageError) {
-          console.warn(`[DeleteAll] Image cleanup warning for metadata ${item.comicMetadataId}:`, imageError.message)
-        }
-        await database.collection('comicMetadata').deleteOne({ _id: new ObjectId(item.comicMetadataId) })
-      }
-    }
+    // Only this account's rows are removed. Shared cover assets are
+    // intentionally left in place — see COM-45 (GC deferred).
+    const result = await database.collection('comics').deleteMany({ userId: req.userId })
 
     return res.status(200).json({
       success: true,
-      message: `Deleted ${items.length} comics from your collection`,
-      deletedCount: items.length
+      message: `Deleted ${result.deletedCount} comics from your collection`,
+      deletedCount: result.deletedCount
     })
   } catch (error) {
     console.error('Error deleting all comics:', error)

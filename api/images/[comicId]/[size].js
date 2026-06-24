@@ -12,7 +12,7 @@ import { getCoverImages } from '../../db-image-storage.js'
 import { isS3Reference, isLegacyReference } from '../../s3-serialization.js'
 import { requireAuth } from '../../auth.js'
 import { getMongoDBUri, getDatabaseName } from '../../config.js'
-import { userOwnsMetadata } from '../../lib/userComics.js'
+import { getComic } from '../../lib/comics.js'
 
 let client
 let db
@@ -72,19 +72,21 @@ export default async function handler(req, res) {
     }
     
     const database = await connectToDatabase()
-    const owned = ObjectId.isValid(comicId) &&
-      await userOwnsMetadata(database, { userId: req.userId, comicMetadataId: comicId })
-    if (!owned) {
+    const comic = ObjectId.isValid(comicId)
+      ? await getComic(database, { userId: req.userId, comicId })
+      : null
+    if (!comic || !comic.coverAssetId) {
       return res.status(404).json({
         success: false,
         error: 'Image not found'
       })
     }
+    const assetId = comic.coverAssetId
 
-    console.log(`[Image Retrieval] Retrieving image for comic: ${comicId}, size: ${size}`)
+    console.log(`[Image Retrieval] Retrieving image for asset: ${assetId}, size: ${size}`)
 
     // Get the image data from MongoDB
-    const imageData = await getCoverImages(comicId)
+    const imageData = await getCoverImages(assetId)
     
     if (!imageData) {
       return res.status(404).json({
@@ -145,7 +147,7 @@ export default async function handler(req, res) {
       
       // Generate ETag with updatedAt timestamp for cache invalidation
       const updatedAt = imageData.updatedAt || imageData.createdAt || Date.now()
-      const etag = `"${comicId}-${size}-${new Date(updatedAt).getTime()}"`
+      const etag = `"${assetId}-${size}-${new Date(updatedAt).getTime()}"`
       
       // Set appropriate headers
       res.setHeader('Content-Type', sizeData.mimeType || 'image/jpeg')

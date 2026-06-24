@@ -222,7 +222,7 @@ function CoverModal({
           {/* Cover Image */}
           <div className="cover-modal__image-container">
             <CoverImage
-              comicId={comic.comicMetadataId}
+              comicId={comic.id}
               comic={comic}
               size="full"
               lazy={false}

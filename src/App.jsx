@@ -117,14 +117,13 @@ function App() {
       const savedComic = await dataStore.addComic(newComic)
       
       // If we have cover data and a valid comic ID, upload the cover
-      // (keyed by the shared comicMetadataId, not the per-account id)
-      if (coverData && savedComic?.comicMetadataId) {
-        console.log('Uploading cover for new comic:', savedComic.comicMetadataId)
+      if (coverData && savedComic?.id) {
+        console.log('Uploading cover for new comic:', savedComic.id)
         try {
           // Get the image blob from coverData
           const imageBlob = coverData.originalFile || coverData.processed?.full
           if (imageBlob) {
-            await coverUpdateService.addCover(savedComic.comicMetadataId, imageBlob, {
+            await coverUpdateService.addCover(savedComic.id, imageBlob, {
               source: coverData.metadata?.source || 'upload',
               provider: coverData.metadata?.provider,
               originalUrl: coverData.metadata?.originalUrl,
@@ -149,6 +148,12 @@ function App() {
     } catch (error) {
       console.error('Error adding comic:', error)
       setSaveStatus('error')
+
+      if (error.message.includes('409')) {
+        alert('You already own this issue — duplicate copies aren\'t supported yet.')
+        return
+      }
+
       // Handle error through error handler
       await coverErrorHandler.handleError(error, {
         operation: 'add_comic',

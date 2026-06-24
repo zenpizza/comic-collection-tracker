@@ -1,29 +1,27 @@
 #!/usr/bin/env node
 
 /**
- * One-time migration: split the legacy flat `comics` collection into the
- * new shared `comicMetadata` + per-account `userComics` schema introduced
- * for the Clerk multi-account rollout.
+ * One-time migration: upgrade legacy flat `comics` documents (pre-Clerk,
+ * no userId) in place into the new per-account schema — each row gets a
+ * `userId`, an `identityKey`, and a `coverAssetId` pointing at a shared
+ * `coverAssets` entry (instead of splitting into separate comicMetadata/
+ * userComics collections).
  *
- * What it does, per legacy comic document:
- *   1. Groups legacy comics by series|issueNumber|publisher|variant (the
- *      same dedupe key used by api/lib/comicMetadata.js) so pre-existing
- *      duplicate rows collapse into a single comicMetadata record.
- *   2. Creates one comicMetadata doc per group, preserving hasCover /
- *      coverLastUpdated / volumeId / volumeName from the best legacy row
- *      in that group (prefers the one with a cover, then most recent).
- *   3. Creates one userComics doc per group, tagged with --user-id,
- *      carrying notes/dateAdded from that same best legacy row.
- *   4. Re-points each surviving cover_images document's `comicId` field
- *      from the old comic._id to the new comicMetadata._id. This is a
- *      Mongo field update only — S3 object keys are untouched, since the
- *      stored S3 url/key already fully addresses the object regardless of
- *      what id string happens to be embedded in its path.
- *
- * This script does NOT touch the `comics` collection — it is purely
- * additive/read-only against it, so it's safe to re-run (though running it
- * twice for the same --user-id will create duplicate userComics entries;
- * use POST /api/comics/dedupe afterward if that happens).
+ * What it does:
+ *   1. Reads only `comics` documents that don't yet have a `userId` field
+ *      (i.e. not-yet-migrated legacy rows) — safe to re-run.
+ *   2. Groups them by identityKey (same as api/lib/comics.js's
+ *      buildIdentityKey) to collapse pre-existing legacy duplicates, since
+ *      the new unique {userId, identityKey} index would otherwise reject
+ *      a second row for the same issue under the same account.
+ *   3. For each group, updates the "best" row (prefers one with a cover,
+ *      then most recently added) in place: adds userId/identityKey, and
+ *      if it had a cover, creates a `coverAssets` entry for it and
+ *      re-points the existing `cover_images` document's `comicId` field
+ *      at the new asset id (S3 object keys are untouched — the stored
+ *      url/key already fully addresses the object).
+ *   4. Leaves non-best duplicates within a group untouched (not deleted) —
+ *      they keep their legacy shape and can be cleaned up manually later.
  *
  * Usage:
  *   node scripts/migrate-to-account-schema.js --user-id=<clerkUserId> [--confirm]
@@ -40,7 +38,7 @@ dotenv.config()
 dotenv.config({ path: '.env.local' })
 
 import { getMongoDBUri, getDatabaseName } from '../api/config.js'
-import { buildDedupeKey } from '../api/lib/comicMetadata.js'
+import { buildIdentityKey } from '../api/lib/comics.js'
 
 function parseArgs(argv) {
   const args = { confirm: false }
@@ -76,78 +74,73 @@ async function main() {
   const db = client.db(getDatabaseName())
 
   try {
-    const legacyComics = await db.collection('comics').find({}).toArray()
-    console.log(`Found ${legacyComics.length} legacy comics`)
+    const legacyComics = await db.collection('comics').find({ userId: { $exists: false } }).toArray()
+    console.log(`Found ${legacyComics.length} not-yet-migrated legacy comics`)
 
     const groups = {}
     for (const comic of legacyComics) {
-      const key = buildDedupeKey(comic)
+      const key = buildIdentityKey(comic)
       if (!groups[key]) groups[key] = []
       groups[key].push(comic)
     }
     console.log(`Grouped into ${Object.keys(groups).length} unique comics`)
 
-    let metadataCreated = 0
-    let collectionItemsCreated = 0
+    let migratedCount = 0
+    let skippedDuplicateCount = 0
+    let assetsCreated = 0
     let coverImagesRepointed = 0
 
-    for (const [dedupeKey, group] of Object.entries(groups)) {
+    for (const [identityKey, group] of Object.entries(groups)) {
       const best = pickBest(group)
+      skippedDuplicateCount += group.length - 1
 
-      const metadataDoc = {
-        dedupeKey,
-        series: String(best.series || ''),
-        issueNumber: String(best.issueNumber || ''),
-        publisher: best.publisher || null,
-        year: best.year && !isNaN(best.year) ? Number(best.year) : best.year || null,
-        variant: best.variant || null,
-        volumeId: best.volumeId || null,
-        volumeName: best.volumeName || null,
-        hasCover: best.hasCover === true,
-        coverLastUpdated: best.coverLastUpdated || null,
-        createdAt: best.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
+      let coverAssetId = null
 
-      let metadataId
-      if (confirm) {
-        const result = await db.collection('comicMetadata').insertOne(metadataDoc)
-        metadataId = result.insertedId
-      } else {
-        metadataId = new ObjectId() // placeholder for dry-run logging only
-      }
-      metadataCreated++
+      if (best.hasCover) {
+        const assetDoc = {
+          identityKey,
+          images: {},
+          metadata: {},
+          createdAt: best.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
 
-      const userComicDoc = {
-        userId,
-        comicMetadataId: metadataId,
-        notes: best.notes || '',
-        dateAdded: best.dateAdded || best.createdAt || new Date().toISOString(),
-        createdAt: best.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        if (confirm) {
+          const assetResult = await db.collection('coverAssets').insertOne(assetDoc)
+          coverAssetId = assetResult.insertedId
+
+          const repointResult = await db.collection('cover_images').updateOne(
+            { comicId: best._id.toString() },
+            { $set: { comicId: coverAssetId.toString() } }
+          )
+          if (repointResult.matchedCount > 0) coverImagesRepointed++
+        } else {
+          coverAssetId = new ObjectId() // placeholder for dry-run logging only
+          coverImagesRepointed++ // would repoint in a real run
+        }
+        assetsCreated++
       }
 
       if (confirm) {
-        await db.collection('userComics').insertOne(userComicDoc)
-      }
-      collectionItemsCreated++
-
-      if (confirm && best.hasCover) {
-        const repointResult = await db.collection('cover_images').updateOne(
-          { comicId: best._id.toString() },
-          { $set: { comicId: metadataId.toString() } }
+        await db.collection('comics').updateOne(
+          { _id: best._id },
+          { $set: {
+            userId,
+            identityKey,
+            coverAssetId,
+            updatedAt: new Date().toISOString(),
+          } }
         )
-        if (repointResult.matchedCount > 0) coverImagesRepointed++
-      } else if (best.hasCover) {
-        coverImagesRepointed++ // would repoint in a real run
       }
+      migratedCount++
     }
 
     console.log('')
     console.log('Migration summary:')
-    console.log(`  comicMetadata records created: ${metadataCreated}`)
-    console.log(`  userComics records created:    ${collectionItemsCreated}`)
-    console.log(`  cover_images repointed:        ${coverImagesRepointed}`)
+    console.log(`  comics migrated:           ${migratedCount}`)
+    console.log(`  legacy duplicates skipped:  ${skippedDuplicateCount} (left untouched, not deleted)`)
+    console.log(`  coverAssets created:        ${assetsCreated}`)
+    console.log(`  cover_images repointed:     ${coverImagesRepointed}`)
     if (!confirm) {
       console.log('')
       console.log('This was a dry run — no data was written. Re-run with --confirm to apply.')

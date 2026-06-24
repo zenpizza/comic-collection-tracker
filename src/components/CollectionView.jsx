@@ -194,7 +194,7 @@ function CollectionView({ comics, onRemove, onEdit, recentlyImportedIds = null, 
                       aria-label={`View details for ${comic.series} issue ${comic.issueNumber}`}
                     >
                       <CoverImage
-                        comicId={comic.comicMetadataId}
+                        comicId={comic.id}
                         comic={comic}
                         size={viewMode === 'grid' ? 'medium' : 'thumbnail'}
                         lazy={true}

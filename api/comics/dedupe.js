@@ -6,7 +6,7 @@
 import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { requireAuth } from '../auth.js'
-import { listCollection, removeFromCollection } from '../lib/userComics.js'
+import { listComics, removeComic } from '../lib/comics.js'
 
 let client
 let db
@@ -46,9 +46,10 @@ export default async function handler(req, res) {
   try {
     const database = await connectToDatabase()
 
-    // Duplicates within an account = multiple collection items pointing at
-    // the same shared comicMetadata record.
-    const allComics = await listCollection(database, req.userId)
+    // The unique {userId, identityKey} index prevents new duplicates, but
+    // legacy data (or a manual DB edit) could still have some — group by
+    // identityKey within this account to find them.
+    const allComics = await listComics(database, req.userId)
     console.log(`Found ${allComics.length} comics in this account's collection`)
 
     const comicGroups = {}
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
     const unique = []
 
     allComics.forEach(comic => {
-      const key = comic.comicMetadataId
+      const key = comic.identityKey
       if (!comicGroups[key]) {
         comicGroups[key] = []
       }
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
     console.log(`Keeping ${unique.length} unique comics`)
 
     for (const duplicate of duplicates) {
-      await removeFromCollection(database, { userId: req.userId, userComicId: duplicate.id })
+      await removeComic(database, { userId: req.userId, comicId: duplicate.id })
     }
 
     return res.status(200).json({

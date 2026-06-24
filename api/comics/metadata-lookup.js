@@ -1,5 +1,5 @@
 /**
- * Shared comic metadata lookup endpoint
+ * Shared cover lookup endpoint
  * GET /api/comics/metadata-lookup?series=&issueNumber=&publisher=&variant=
  *
  * Lets the client check whether another account has already added this
@@ -10,7 +10,7 @@
 import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { requireAuth } from '../auth.js'
-import { buildDedupeKey } from '../lib/comicMetadata.js'
+import { buildIdentityKey } from '../lib/comics.js'
 
 let client
 let db
@@ -57,26 +57,30 @@ export default async function handler(req, res) {
 
   try {
     const database = await connectToDatabase()
-    const dedupeKey = buildDedupeKey({ series, issueNumber, publisher, variant })
-    const metadata = await database.collection('comicMetadata').findOne({ dedupeKey })
+    const identityKey = buildIdentityKey({ series, issueNumber, publisher, variant })
 
-    if (!metadata) {
+    // Any existing comic (any account) with this identity and a cover
+    // already attached — its coverAssetId is what a new add would reuse.
+    const existing = await database.collection('comics').findOne({
+      identityKey,
+      coverAssetId: { $ne: null }
+    })
+
+    if (!existing) {
       return res.status(200).json({ success: true, metadata: null })
     }
 
     return res.status(200).json({
       success: true,
       metadata: {
-        comicMetadataId: metadata._id.toString(),
-        series: metadata.series,
-        issueNumber: metadata.issueNumber,
-        publisher: metadata.publisher,
-        year: metadata.year,
-        variant: metadata.variant,
-        volumeId: metadata.volumeId,
-        volumeName: metadata.volumeName,
-        hasCover: metadata.hasCover,
-        coverLastUpdated: metadata.coverLastUpdated
+        series: existing.series,
+        issueNumber: existing.issueNumber,
+        publisher: existing.publisher,
+        year: existing.year,
+        variant: existing.variant,
+        volumeId: existing.volumeId,
+        volumeName: existing.volumeName,
+        hasCover: true
       }
     })
   } catch (error) {
