@@ -4,16 +4,19 @@
  */
 
 import { getEnvironment } from './config.js'
+import { requireAuth } from './auth.js'
 
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  // Restrict CORS — authenticated debug endpoint, no need for cross-origin access
+  res.setHeader('Access-Control-Allow-Origin', process.env.APP_ORIGIN || 'https://comic-collection-tracker.vercel.app')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
+
+  if (!await requireAuth(req, res)) return
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
