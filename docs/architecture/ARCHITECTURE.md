@@ -98,6 +98,33 @@ This document tracks major architectural decisions made for the Comic Collection
 - ✅ Easier performance optimization
 - ❌ Requires updating multiple components
 
+## ADR-009: Clerk Authentication + Per-Account Data Isolation
+
+**Date**: 2026-06-24
+**Status**: Implemented
+**Context**: The app was unauthenticated — any request could read or mutate the shared database.
+**Decision**: Add Clerk as the auth provider. Every API route requires a valid Clerk Bearer token (`requireAuth`). Each `comics` document is stamped with a `userId` (Clerk's `sub` claim); all queries filter by it, so accounts are fully isolated without any data visible across account boundaries.
+**Consequences**:
+- ✅ Full per-account data isolation
+- ✅ No code changes needed for future multi-account features
+- ✅ Standard JWT-based auth, no session cookies
+- ❌ All clients must pass a Bearer token; the existing `apiFetch` utility handles this automatically
+
+## ADR-010: Single `comics` Collection + `coverAssets` Identity Layer
+
+**Date**: 2026-06-25
+**Status**: Implemented
+**Context**: Initial Clerk rollout used a two-table design (`comicMetadata` + `userComics`) to share canonical comic data and cover images across accounts without duplication. In practice this caused a correctness bug: editing a canonical field (e.g. publisher) relinked a `userComics` row to a new `comicMetadata` row, silently orphaning the cover that was attached to the old one.
+**Decision**: Replace the two-table design with a single `comics` collection (one row per account-owned issue, `userId` for isolation) plus a thin `coverAssets` collection (one row per unique cover, keyed by `identityKey`). Cover reuse across accounts is handled at write time — `addComic` looks up any existing `coverAsset` for the same identity before calling ComicVine. Replacing a cover uses copy-on-write semantics: only the editing account's row is repointed; other accounts are unaffected.
+**Consequences**:
+- ✅ Editing any field is always a simple local update — no relinking, no orphaned assets
+- ✅ Flat queries, no `$lookup` joins needed for listing a collection
+- ✅ Cross-account cover sharing still works (dedup at add-time, not via a live shared reference)
+- ✅ Orphaned assets (from cover replacements/removals) are left in place and collected later (COM-45)
+- ❌ Canonical text fields (series, publisher, year) are denormalised per-account row; fixing a typo only corrects one account's view
+
+See `docs/architecture/MULTI_ACCOUNT_SCHEMA_DESIGN.md` for the full design discussion.
+
 ## Template for Future ADRs
 
 ```markdown

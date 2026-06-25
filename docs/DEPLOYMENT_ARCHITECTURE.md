@@ -85,16 +85,20 @@ Connects to Atlas Production Database
 comic-collection-tracke.aufn0iz.mongodb.net
 │
 ├── comic-collection (Production)
-│   ├── comics (~350 documents)
-│   └── cover_images (~350 documents, S3 refs only)
-│   └── ~75 KB (metadata only, images in S3)
+│   ├── comics          — one row per account-owned issue; userId field
+│   │                     isolates accounts. Each row has an identityKey
+│   │                     (comicvine|<id> or manual|series|issue|...) and
+│   │                     a coverAssetId pointing at the shared cover.
+│   ├── coverAssets     — shared cover identity registry; keyed by
+│   │                     identityKey so multiple accounts owning the same
+│   │                     issue reuse one asset record.
+│   ├── cover_images    — S3 references per cover, keyed by coverAsset _id.
+│   └── accounts        — lazy account records created on first sign-in.
 │
 ├── comic-collection-preview (Preview)
-│   ├── comics (test data)
-│   └── cover_images (test data)
-│   └── ~minimal
+│   └── (same schema, test/preview data)
 │
-└── Total: < 1 MB (images migrated to S3)
+└── Total: < 1 MB (images in S3, MongoDB stores references only)
 ```
 
 ### Image Storage (S3 + CloudFront)
@@ -102,19 +106,20 @@ comic-collection-tracke.aufn0iz.mongodb.net
 ```
 S3 Bucket: comic-collection-covers
 │
-├── production/covers/{comicId}/
+├── production/covers/{coverAssetId}/
 │   ├── thumbnail.jpg
 │   ├── medium.jpg
 │   └── full.jpg
 │
-├── preview/covers/{comicId}/
+├── preview/covers/{coverAssetId}/
 │   └── (same structure)
 │
-└── development/covers/{comicId}/
+└── development/covers/{coverAssetId}/
     └── (same structure)
 
 CloudFront Distribution: d1o0pmmy3po4ug.cloudfront.net
-└── Serves images with CORS headers
+└── Serves images; proxied through Vercel functions for authenticated
+    requests (so the Authorization header never crosses to CloudFront)
 ```
 
 ### Local Docker MongoDB

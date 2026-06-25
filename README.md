@@ -73,7 +73,7 @@ The app supports three deployment environments:
 - Frontend: Vercel static hosting
 - Backend: Vercel serverless functions
 - Database: MongoDB Atlas (`comic-collection`)
-- Images: MongoDB (base64 encoded, 3 sizes)
+- Images: S3 + CloudFront (MongoDB stores S3 references)
 
 See [Deployment Architecture](docs/DEPLOYMENT_ARCHITECTURE.md) for details.
 
@@ -115,17 +115,20 @@ The "Data Manager" tab provides:
 - **Import/Restore**: Upload a previously exported collection
 - **Data Clearing**: Reset your collection (with confirmation)
 
+## Authentication
+
+Sign in is required to use the app. Each account has its own isolated comic collection. Authentication is handled by [Clerk](https://clerk.com).
+
 ## Data Storage
 
-**Production**: MongoDB Atlas (cloud database)
-- Comics stored as individual documents
-- Cover images stored as base64 encoded data
-- Three image sizes: thumbnail, medium, full
+**Production / Preview**: MongoDB Atlas (cloud database) + S3/CloudFront
+- Each account's comic collection is stored per-account in the `comics` collection — rows are scoped by `userId` so accounts are fully isolated from each other
+- Shared cover images live in S3 (served via CloudFront) with references stored in the `cover_images` collection — the same cover image is stored only once even if multiple accounts own the same issue
+- `coverAssets` tracks each cover's canonical identity key (`comicvine|<id>` preferred, falling back to a normalized `series|issue|publisher` composite) to allow cross-account cover reuse without duplication
 
-**Local Development**: File-based storage
-- JSON files in the `data/` directory
+**Local Development**: Docker MongoDB (localhost:27017)
 - Used only when running `npm run dev:full`
-- Not used in production
+- Same schema as production; populated with test data locally
 
 ## File Structure
 
@@ -142,10 +145,26 @@ comic-collection-tracker/
 
 ## API Endpoints
 
-- `POST /api/save-data` - Save collection data
-- `GET /api/load-data/:filename` - Load collection data
-- `GET /api/backup-data/:filename` - Download backup
-- `GET /api/stats` - Get storage statistics
+All endpoints require a valid Clerk Bearer token (`Authorization: Bearer <token>`).
+
+**Comics**
+- `GET /api/comics` - List this account's comics
+- `POST /api/comics` - Add a comic
+- `PUT /api/comics/:id` - Update a comic
+- `DELETE /api/comics/:id` - Remove a comic from collection
+- `POST /api/comics/bulk` - Bulk add/update; `DELETE` to clear collection
+
+**Covers**
+- `GET /api/images/:comicId?size=medium` - Get cover image (proxied from S3)
+- `POST /api/images/upload` - Upload or replace a cover
+- `DELETE /api/images/:comicId` - Remove cover from this account's comic
+- `GET /api/cover-search` - Search ComicVine for cover art
+
+**Utilities**
+- `GET /api/comics/metadata-lookup` - Check if a shared cover already exists for a title before searching ComicVine
+- `GET /api/comics/stats` - Collection statistics
+- `POST /api/comics/dedupe` - Remove duplicate issues from this account's collection
+- `POST /api/db-init` - Create required MongoDB indexes
 
 ## Contributing
 
