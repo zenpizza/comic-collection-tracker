@@ -116,20 +116,34 @@ export default async function handler(req, res) {
 
     const isReplacement = !!comic.coverAssetId
 
+    // When the cover comes from ComicVine we know the canonical identity.
+    // Prefer comicvine|<apiId> over the comic's current identityKey (which
+    // may still be a manual composite if the comic was bulk-imported before
+    // a ComicVine cover was assigned via BulkCoverManager).
+    const comicVineIdentityKey = (metadata?.source === 'api' && metadata?.apiId)
+      ? `comicvine|${metadata.apiId}`
+      : null
+
     // If this is a ComicVine-sourced cover (not a genuine user file upload)
     // for a comic that doesn't have its own cover yet, and another account
     // already has the shared asset for this exact identity, just reuse it
     // — re-downloading/re-storing the same bytes would be pure waste.
     if (!isReplacement && metadata?.source === 'api') {
-      const existingSharedAsset = await findAssetByIdentityKey(database, comic.identityKey)
+      const lookupKey = comicVineIdentityKey || comic.identityKey
+      const existingSharedAsset = await findAssetByIdentityKey(database, lookupKey)
       if (existingSharedAsset) {
         console.log(`[Upload] Reusing existing shared asset for identity: ${comic.identityKey}`)
         await attachCoverAsset(database, { userId: req.userId, comicId, assetId: existingSharedAsset._id })
 
-        if (metadata.volumeId || metadata.volumeName) {
+        const reuseIdentityUpgrade = comicVineIdentityKey && !comic.comicVineId
+          ? { comicVineId: metadata.apiId, identityKey: comicVineIdentityKey }
+          : {}
+
+        if (metadata.volumeId || metadata.volumeName || Object.keys(reuseIdentityUpgrade).length > 0) {
           await database.collection('comics').updateOne(
             { _id: new ObjectId(comicId), userId: req.userId },
             { $set: {
+              ...reuseIdentityUpgrade,
               ...(metadata.volumeId && { volumeId: metadata.volumeId }),
               ...(metadata.volumeName && { volumeName: metadata.volumeName }),
               updatedAt: new Date().toISOString(),
@@ -161,10 +175,13 @@ export default async function handler(req, res) {
     // Replacing an existing cover always creates a private asset
     // (identityKey: null) so other accounts' covers are unaffected
     // (copy-on-write).
+    // Prefer comicvine|<apiId> when available so the asset is discoverable
+    // by identity even if the comic was originally imported manually.
     let claimIdentityKey = null
     if (!isReplacement) {
-      const existingSharedAsset = await findAssetByIdentityKey(database, comic.identityKey)
-      claimIdentityKey = existingSharedAsset ? null : comic.identityKey
+      const preferredKey = comicVineIdentityKey || comic.identityKey
+      const existingSharedAsset = await findAssetByIdentityKey(database, preferredKey)
+      claimIdentityKey = existingSharedAsset ? null : preferredKey
     }
 
     const assetId = new ObjectId()
@@ -212,12 +229,18 @@ export default async function handler(req, res) {
     const asset = await createAsset(database, { _id: assetId, identityKey: claimIdentityKey })
     await attachCoverAsset(database, { userId: req.userId, comicId, assetId: asset._id })
 
-    // Volume info from the cover search result, if any — purely
-    // informational, so this doesn't touch identityKey/coverAssetId
-    if (metadata.volumeId || metadata.volumeName) {
+    // If the cover came from ComicVine and the comic doesn't yet have a
+    // comicVineId (e.g. it was bulk-imported before BulkCoverManager ran),
+    // upgrade its identity to the stronger comicvine|<id> form now.
+    const identityUpgrade = comicVineIdentityKey && !comic.comicVineId
+      ? { comicVineId: metadata.apiId, identityKey: comicVineIdentityKey }
+      : {}
+
+    if (metadata.volumeId || metadata.volumeName || Object.keys(identityUpgrade).length > 0) {
       await database.collection('comics').updateOne(
         { _id: new ObjectId(comicId), userId: req.userId },
         { $set: {
+          ...identityUpgrade,
           ...(metadata.volumeId && { volumeId: metadata.volumeId }),
           ...(metadata.volumeName && { volumeName: metadata.volumeName }),
           updatedAt: new Date().toISOString(),

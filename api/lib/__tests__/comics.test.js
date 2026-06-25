@@ -204,3 +204,31 @@ describe('comics + coverAssets integration', () => {
     expect(updatedO.coverAssetId).toBe(oldAsset._id.toString())
   })
 })
+
+describe('updateComic with foreign/absent id', () => {
+  let db, stop
+
+  beforeAll(async () => {
+    const testDb = await startTestDb()
+    db = testDb.db
+    stop = testDb.stop
+    await ensureIndexes(db)
+    await ensureAssetIndexes(db)
+  })
+
+  afterAll(async () => { await stop() })
+
+  it('throws "not found" when the id belongs to a different account', async () => {
+    const owner = await addComic(db, { userId: 'user_owner_bulk', comic: { series: 'Saga', issueNumber: '1' } })
+    await expect(
+      updateComic(db, { userId: 'user_other_bulk', comicId: owner.id, updates: { series: 'Saga', issueNumber: '1' } })
+    ).rejects.toThrow("not found")
+  })
+
+  it('throws "not found" when the id is a valid ObjectId that simply does not exist', async () => {
+    const nonexistentId = new ObjectId().toString()
+    await expect(
+      updateComic(db, { userId: 'user_importer', comicId: nonexistentId, updates: { series: 'Saga', issueNumber: '1' } })
+    ).rejects.toThrow("not found")
+  })
+})

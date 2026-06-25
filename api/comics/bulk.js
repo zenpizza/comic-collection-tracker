@@ -104,6 +104,23 @@ export default async function handler(req, res) {
           duplicateCount++
           continue
         }
+        // An imported comic carries an id from the source account — if that
+        // id doesn't exist in this account, treat it as a new insert rather
+        // than failing the whole import with a 500.
+        if (comicId && error.message?.includes('not found')) {
+          try {
+            const { id: _dropped, _id: _dropped2, ...comicWithoutId } = comic
+            await addComic(database, { userId: req.userId, comic: comicWithoutId })
+            upsertedCount++
+            continue
+          } catch (addError) {
+            if (addError instanceof DuplicateComicError) {
+              duplicateCount++
+              continue
+            }
+            throw addError
+          }
+        }
         throw error
       }
     }
