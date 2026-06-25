@@ -33,14 +33,14 @@ Click **Add New** and enter each variable:
 **MONGODB_URI:**
 ```
 Name: MONGODB_URI
-Value: mongodb+srv://Vercel-Admin-comic-collection-tracker:<REDACTED-ROTATED-SECRET>@comic-collection-tracke.aufn0iz.mongodb.net/comic-collection?retryWrites=true&w=majority&appName=comic-collection-tracker
+Value: mongodb+srv://<user>:<password>@<cluster>.mongodb.net/comic-collection?retryWrites=true&w=majority&appName=comic-collection-tracker
 Environment: ✅ Production only
 ```
 
 **COMICVINE_API_KEY:**
 ```
 Name: COMICVINE_API_KEY
-Value: <REDACTED-ROTATED-SECRET>
+Value: <your-comicvine-api-key>
 Environment: ✅ Production only
 ```
 
@@ -65,14 +65,14 @@ Click **Add New** and enter each variable:
 **MONGODB_URI:**
 ```
 Name: MONGODB_URI
-Value: mongodb+srv://Vercel-Admin-comic-collection-tracker:<REDACTED-ROTATED-SECRET>@comic-collection-tracke.aufn0iz.mongodb.net/comic-collection-preview?retryWrites=true&w=majority&appName=comic-collection-tracker
+Value: mongodb+srv://<user>:<password>@<cluster>.mongodb.net/comic-collection-preview?retryWrites=true&w=majority&appName=comic-collection-tracker
 Environment: ✅ Preview only
 ```
 
 **COMICVINE_API_KEY:**
 ```
 Name: COMICVINE_API_KEY
-Value: <REDACTED-ROTATED-SECRET>
+Value: <your-comicvine-api-key>
 Environment: ✅ Preview only
 ```
 
@@ -113,9 +113,9 @@ The preview database will be created automatically, but you should initialize it
 **Option B: Using mongosh**
 
 ```bash
-mongosh "mongodb+srv://comic-collection-tracke.aufn0iz.mongodb.net" \
-  --username Vercel-Admin-comic-collection-tracker \
-  --password <REDACTED-ROTATED-SECRET>
+mongosh "mongodb+srv://<cluster>.mongodb.net" \
+  --username <user> \
+  --password <password>
 
 use comic-collection-preview
 db.createCollection('comics')

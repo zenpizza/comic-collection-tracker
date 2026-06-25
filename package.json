@@ -29,7 +29,8 @@
     "test:blob-cleanup": "node scripts/test-blob-cleanup.js",
     "test:blob-integration": "node scripts/test-app-blob-cleanup.js",
     "test:cover-replacement": "node scripts/test-cover-replacement.js",
-    "test:cover-replacement-comicvine": "node scripts/test-cover-replacement-comicvine.js"
+    "test:cover-replacement-comicvine": "node scripts/test-cover-replacement-comicvine.js",
+    "prepare": "husky || true"
   },
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.955.0",
@@ -52,6 +53,7 @@
     "@vitejs/plugin-react": "^4.0.0",
     "concurrently": "^8.2.2",
     "fast-check": "^4.5.2",
+    "husky": "^9.1.7",
     "mongodb-memory-server": "^11.2.0",
     "vite": "^7.1.10",
     "vitest": "^4.0.16"

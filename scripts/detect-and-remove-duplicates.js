@@ -5,9 +5,12 @@
  */
 
 import { MongoClient } from 'mongodb'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 // Use the production MongoDB URI from Vercel
-const MONGODB_URI = "mongodb+srv://Vercel-Admin-comic-collection-tracker:<REDACTED-ROTATED-SECRET>@comic-collection-tracke.aufn0iz.mongodb.net/?retryWrites=true&w=majority&appName=comic-collection-tracker"
+const MONGODB_URI = process.env.MONGODB_URI
 
 async function detectAndRemoveDuplicates() {
   let client
@@ -17,7 +20,7 @@ async function detectAndRemoveDuplicates() {
     
     client = new MongoClient(MONGODB_URI)
     await client.connect()
-    const db = client.db('comic-collection')
+    const db = client.db() // uses the database named in MONGODB_URI
     const collection = db.collection('comics')
 
     // Get all individual comic documents
