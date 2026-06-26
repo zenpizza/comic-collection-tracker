@@ -37,9 +37,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'userId is required in request body' })
     }
 
-    const apiKey = process.env.COMIC_VINE_API_KEY
+    const apiKey = process.env.COMICVINE_API_KEY
     if (!apiKey) {
-      return res.status(500).json({ error: 'COMIC_VINE_API_KEY not set' })
+      return res.status(500).json({ error: 'COMICVINE_API_KEY not set' })
     }
 
     const database = await connectToDatabase()
