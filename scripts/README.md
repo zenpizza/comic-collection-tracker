@@ -4,6 +4,17 @@ This directory contains test and utility scripts for the Comic Collection Tracke
 
 ## Available Scripts
 
+### Playwright Auth (one-time setup)
+- `save-playwright-auth.cjs` - Capture a signed-in Clerk session for headless Playwright verification scripts
+
+```bash
+# Requires dev server running: npm run dev
+npm run auth:save
+# A browser window opens — sign in, then press Enter in the terminal.
+# Saves .playwright-auth.json (gitignored). Re-run when the session expires.
+# Override the default port: APP_URL=http://localhost:3001 npm run auth:save
+```
+
 ### S3 Image Storage
 - `migrate-images-to-s3.js` - Migrate images from MongoDB base64 to S3
 - `cleanup-legacy-images.js` - Remove base64 data after S3 migration

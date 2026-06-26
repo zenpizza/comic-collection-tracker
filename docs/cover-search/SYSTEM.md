@@ -105,6 +105,12 @@ const results = await coverAPIService.searchCovers(
   comic.publisher,
   comic.year
 )
+
+if (results.length === 0) {
+  setCoverSearchError('No covers found for this comic. You can upload a cover manually.')
+  return // modal stays open; CoverSelector is not opened
+}
+setCoverManagerMode('search') // only reached when results exist
 ```
 
 #### 2. ComicForm (Adding New Comics)
