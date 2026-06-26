@@ -40,3 +40,6 @@ docker-compose.override.yml
 
 # Claude Code internals
 .claude/
+
+# Playwright saved auth state (run scripts/save-playwright-auth.cjs to generate)
+.playwright-auth.json

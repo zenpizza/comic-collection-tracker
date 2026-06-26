@@ -27,6 +27,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
   const [coverSearchResults, setCoverSearchResults] = useState([])
   const [coverRefreshKey, setCoverRefreshKey] = useState(0)
   const [showFullSizeImage, setShowFullSizeImage] = useState(false)
+  const [coverSearchError, setCoverSearchError] = useState(null)
 
   useEffect(() => {
     // Close dropdowns when clicking outside
@@ -111,7 +112,8 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
   const handleSearchCovers = async () => {
     setSearchingCovers(true)
     setCoverSearchResults([])
-    
+    setCoverSearchError(null)
+
     try {
       // Parse issue number to handle annuals and special formats
       // IMPORTANT: Always use issueParser before searching to ensure proper format
@@ -134,11 +136,15 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
       )
       
       console.log('Cover search results:', results)
+      if (results.length === 0) {
+        setCoverSearchError('No covers found for this comic. You can upload a cover manually.')
+        return
+      }
       setCoverSearchResults(results)
       setCoverManagerMode('search')
     } catch (error) {
       console.error('Error searching for covers:', error)
-      alert('Failed to search for covers. Please try uploading instead.')
+      setCoverSearchError('Failed to search for covers. Please try uploading instead.')
     } finally {
       setSearchingCovers(false)
     }
@@ -551,23 +557,28 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
         {showCoverManager && !coverManagerMode && (
           <div className="cover-uploader-overlay">
             <div className="cover-uploader-modal">
-              <button 
-                className="close-btn" 
-                onClick={() => setShowCoverManager(false)}
+              <button
+                className="close-btn"
+                onClick={() => { setShowCoverManager(false); setCoverSearchError(null) }}
                 title="Close"
               >
                 ×
               </button>
               <h2 style={{ marginBottom: '20px' }}>Choose Cover Source</h2>
+              {coverSearchError && (
+                <p style={{ color: 'var(--color-error, #c0392b)', marginBottom: '12px', fontSize: '14px' }}>
+                  {coverSearchError}
+                </p>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <button 
+                <button
                   className="btn btn-primary"
                   onClick={() => setCoverManagerMode('upload')}
                   style={{ padding: '20px', fontSize: '16px' }}
                 >
                   📁 Upload from File
                 </button>
-                <button 
+                <button
                   className="btn btn-secondary"
                   onClick={handleSearchCovers}
                   disabled={searchingCovers}
@@ -575,9 +586,9 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                 >
                   {searchingCovers ? '🔍 Searching...' : '🔍 Search Cover APIs'}
                 </button>
-                <button 
+                <button
                   className="btn btn-secondary"
-                  onClick={() => setShowCoverManager(false)}
+                  onClick={() => { setShowCoverManager(false); setCoverSearchError(null) }}
                 >
                   Cancel
                 </button>
