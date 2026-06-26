@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option C — Flat Feed with Sticky Headers</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #f0f0f0; color: #222; }
+
+  /* NAV */
+  .nav { background: #555; padding: 0 16px; display: flex; align-items: center; gap: 24px; height: 48px; position: sticky; top: 0; z-index: 20; }
+  .nav-logo { color: #fff; font-weight: 700; font-size: 15px; }
+  .nav a { color: #ccc; font-size: 13px; text-decoration: none; padding: 4px 8px; border-radius: 4px; }
+  .nav a.active { background: #888; color: #fff; }
+
+  /* STATS BAR */
+  .stats { background: #ddd; border-bottom: 1px solid #bbb; padding: 10px 20px; display: flex; gap: 32px; position: sticky; top: 48px; z-index: 19; }
+  .stat { display: flex; flex-direction: column; }
+  .stat-value { font-size: 20px; font-weight: 700; color: #333; }
+  .stat-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* TOOLBAR */
+  .toolbar { padding: 10px 20px; display: flex; gap: 10px; background: #e4e4e4; border-bottom: 1px solid #ccc; position: sticky; top: 96px; z-index: 18; }
+  .search-box { flex: 1; height: 32px; background: #fff; border: 1px solid #bbb; border-radius: 6px; padding: 0 10px; font-size: 13px; color: #999; display: flex; align-items: center; }
+  .sort-box { height: 32px; background: #ddd; border: 1px solid #bbb; border-radius: 6px; padding: 0 10px; font-size: 13px; color: #555; }
+
+  /* FEED */
+  .feed { max-width: 860px; margin: 0 auto; padding: 0 0 40px; }
+
+  /* SERIES GROUP */
+  .series-group { margin-top: 0; }
+
+  /* STICKY SERIES HEADER */
+  .series-header { position: sticky; top: 137px; z-index: 10; background: #ccc; border-top: 2px solid #aaa; border-bottom: 1px solid #bbb; padding: 8px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .series-header-left { display: flex; flex-direction: column; }
+  .series-header-title { font-size: 15px; font-weight: 700; color: #333; }
+  .series-header-sub { font-size: 11px; color: #777; margin-top: 1px; }
+  .series-header-right { display: flex; gap: 8px; align-items: center; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #bbb; color: #555; }
+  .pill.missing { background: #e88; color: #fff; }
+  .pill.complete { background: #8c8; color: #fff; }
+
+  /* ISSUE RAIL */
+  .issue-rail { display: flex; gap: 0; overflow-x: auto; padding: 14px 20px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; scrollbar-width: none; }
+  .issue-rail::-webkit-scrollbar { display: none; }
+
+  .issue-cell { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; width: 80px; gap: 4px; }
+  .cover { width: 68px; height: 98px; background: #bbb; border-radius: 4px; }
+  .cover.missing { background: repeating-linear-gradient(45deg,#ddd,#ddd 5px,#ebebeb 5px,#ebebeb 10px); border: 1px dashed #bbb; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 18px; }
+  .issue-label { font-size: 10px; color: #777; }
+  .issue-label.red { color: #c55; }
+
+  /* SPACER between groups */
+  .group-spacer { height: 8px; background: #e4e4e4; }
+
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo">ComicShelf</span>
+  <a href="#" class="active">My Collection</a>
+  <a href="#">Add Comic</a>
+  <a href="#">Bulk Import</a>
+  <a href="#">Data</a>
+</nav>
+
+<div class="stats">
+  <div class="stat"><span class="stat-value">847</span><span class="stat-label">Issues Owned</span></div>
+  <div class="stat"><span class="stat-value">14</span><span class="stat-label">Titles</span></div>
+  <div class="stat"><span class="stat-value">63</span><span class="stat-label">Gaps in Ranges</span></div>
+</div>
+
+<div class="toolbar">
+  <div class="search-box">🔍 Search titles…</div>
+  <div class="sort-box">A–Z ▾</div>
+</div>
+
+<div class="feed">
+
+  <!-- GROUP 1 -->
+  <div class="series-group">
+    <div class="series-header">
+      <div class="series-header-left">
+        <div class="series-header-title">The Amazing Spider-Man</div>
+        <div class="series-header-sub">Marvel · #234–305</div>
+      </div>
+      <div class="series-header-right">
+        <span class="pill">61 owned</span>
+        <span class="pill missing">11 missing</span>
+      </div>
+    </div>
+    <div class="issue-rail">
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#234</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#235</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#236</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#237</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#238</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#239</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#240</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#241</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#242</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#243</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#244</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#245</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#246</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#247</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#248</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#249</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#250</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#251</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#252</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#253</span></div>
+    </div>
+  </div>
+
+  <div class="group-spacer"></div>
+
+  <!-- GROUP 2 -->
+  <div class="series-group">
+    <div class="series-header">
+      <div class="series-header-left">
+        <div class="series-header-title">Batman</div>
+        <div class="series-header-sub">DC Comics · #1–75</div>
+      </div>
+      <div class="series-header-right">
+        <span class="pill">70 owned</span>
+        <span class="pill missing">5 missing</span>
+      </div>
+    </div>
+    <div class="issue-rail">
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#1</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#2</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#3</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#4</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#5</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#6</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#7</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#8</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#9</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#10</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#11</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#12</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#13</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#14</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#15</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#16</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#17</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#18</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#19</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#20</span></div>
+    </div>
+  </div>
+
+  <div class="group-spacer"></div>
+
+  <!-- GROUP 3 -->
+  <div class="series-group">
+    <div class="series-header">
+      <div class="series-header-left">
+        <div class="series-header-title">Daredevil</div>
+        <div class="series-header-sub">Marvel · #150–200</div>
+      </div>
+      <div class="series-header-right">
+        <span class="pill">48 owned</span>
+        <span class="pill missing">3 missing</span>
+      </div>
+    </div>
+    <div class="issue-rail">
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#150</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#151</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#152</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#153</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#154</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#155</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#156</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#157</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#158</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#159</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#160</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#161</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#162</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#163</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#164</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#165</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#166</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#167</span></div>
+    </div>
+  </div>
+
+  <div class="group-spacer"></div>
+
+  <!-- GROUP 4 — complete -->
+  <div class="series-group">
+    <div class="series-header">
+      <div class="series-header-left">
+        <div class="series-header-title">Fantastic Four</div>
+        <div class="series-header-sub">Marvel · #1–30</div>
+      </div>
+      <div class="series-header-right">
+        <span class="pill">30 owned</span>
+        <span class="pill complete">complete</span>
+      </div>
+    </div>
+    <div class="issue-rail">
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#1</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#2</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#3</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#4</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#5</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#6</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#7</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#8</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#9</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#10</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#11</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#12</span></div>
+    </div>
+  </div>
+
+  <div class="group-spacer"></div>
+
+  <!-- GROUP 5 -->
+  <div class="series-group">
+    <div class="series-header">
+      <div class="series-header-left">
+        <div class="series-header-title">Uncanny X-Men</div>
+        <div class="series-header-sub">Marvel · #94–200</div>
+      </div>
+      <div class="series-header-right">
+        <span class="pill">80 owned</span>
+        <span class="pill missing">27 missing</span>
+      </div>
+    </div>
+    <div class="issue-rail">
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#94</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#95</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#96</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#97</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#98</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#99</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#100</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#101</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#102</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#103</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#104</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#105</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#106</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#107</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#108</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#109</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#110</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#111</span></div>
+      <div class="issue-cell"><div class="cover missing">?</div><span class="issue-label red">#112</span></div>
+      <div class="issue-cell"><div class="cover"></div><span class="issue-label">#113</span></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
