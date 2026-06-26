@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, confirm = false } = req.body || {}
+    const { userId, confirm = false, limit = 5 } = req.body || {}
     if (!userId) {
       return res.status(400).json({ error: 'userId is required in request body' })
     }
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     }
 
     const database = await connectToDatabase()
-    const result = await backfillComicVineIds(database, { userId, confirm, apiKey, delayMs: 1500 })
+    const result = await backfillComicVineIds(database, { userId, confirm, apiKey, delayMs: 1500, limit })
     return res.status(200).json({ success: true, result })
   } catch (error) {
     console.error('Backfill error:', error)

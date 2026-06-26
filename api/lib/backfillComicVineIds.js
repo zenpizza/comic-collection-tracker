@@ -12,8 +12,11 @@ import { findAssetByIdentityKey } from './coverAssets.js'
  * already owns another comic with the resulting identity) are reported
  * and skipped, never silently merged.
  */
-export async function backfillComicVineIds(db, { userId, confirm, apiKey, delayMs = 1500 }) {
-  const candidates = await db.collection('comics').find({ userId, comicVineId: null }).toArray()
+export async function backfillComicVineIds(db, { userId, confirm, apiKey, delayMs = 1500, limit = null }) {
+  const query = { userId, comicVineId: null }
+  const cursor = db.collection('comics').find(query).sort({ _id: 1 })
+  if (limit) cursor.limit(limit)
+  const candidates = await cursor.toArray()
 
   let matched = 0
   let updated = 0
@@ -83,6 +86,8 @@ export async function backfillComicVineIds(db, { userId, confirm, apiKey, delayM
     }
   }
 
+  const remaining = await db.collection('comics').countDocuments({ userId, comicVineId: null })
+
   return {
     confirm,
     candidatesFound: candidates.length,
@@ -90,6 +95,7 @@ export async function backfillComicVineIds(db, { userId, confirm, apiKey, delayM
     updated,
     skippedConflict,
     noMatch,
+    remaining,
     details,
   }
 }
