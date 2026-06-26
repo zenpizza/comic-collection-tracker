@@ -40,3 +40,7 @@ docker-compose.override.yml
 
 # Claude Code internals
 .claude/
+
+# Playwright saved auth state and debug artifacts
+.playwright-auth.json
+.playwright-debug.png

@@ -30,6 +30,7 @@
     "test:blob-integration": "node scripts/test-app-blob-cleanup.js",
     "test:cover-replacement": "node scripts/test-cover-replacement.js",
     "test:cover-replacement-comicvine": "node scripts/test-cover-replacement-comicvine.js",
+    "auth:save": "node scripts/save-playwright-auth.cjs",
     "prepare": "husky || true"
   },
   "dependencies": {
@@ -55,6 +56,7 @@
     "fast-check": "^4.5.2",
     "husky": "^9.1.7",
     "mongodb-memory-server": "^11.2.0",
+    "playwright": "^1.61.1",
     "vite": "^7.1.10",
     "vitest": "^4.0.16"
   }
