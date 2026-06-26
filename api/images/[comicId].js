@@ -1,18 +1,24 @@
 /**
  * Dynamic Image API endpoint
- * Handles all operations for a specific comic's images
- * 
+ * Handles all operations for a specific comic's cover image
+ *
+ * `comicId` here is the requesting account's own comic row id (not a
+ * shared identifier) — ownership is verified via {_id, userId}, then the
+ * comic's coverAssetId is resolved to find the actual stored bytes.
+ *
  * Routes:
  * - GET /api/images/[comicId]?size=medium - Get image by size
  * - GET /api/images/[comicId]?metadata=true - Get metadata
- * - DELETE /api/images/[comicId] - Delete image
+ * - DELETE /api/images/[comicId] - Remove this account's cover (does not
+ *   delete the underlying shared asset — see COM-45)
  */
 
 import { MongoClient, ObjectId } from 'mongodb'
-import { getCoverImages, deleteCoverImages } from '../db-image-storage.js'
+import { getCoverImages } from '../db-image-storage.js'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
-import { getS3Client } from '../s3-client.js'
 import { isS3Reference, isLegacyReference } from '../s3-serialization.js'
+import { requireAuth } from '../auth.js'
+import { getComic, detachCover } from '../lib/comics.js'
 
 let client
 let db
@@ -43,6 +49,8 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   const { comicId, size, metadata } = req.query
 
   if (!comicId) {
@@ -53,12 +61,26 @@ export default async function handler(req, res) {
   }
 
   try {
+    const database = await connectToDatabase()
+    const comic = ObjectId.isValid(comicId)
+      ? await getComic(database, { userId: req.userId, comicId })
+      : null
+
+    if (!comic || !comic.coverAssetId) {
+      return res.status(404).json({
+        success: false,
+        error: 'Image not found'
+      })
+    }
+
+    const assetId = comic.coverAssetId
+
     switch (req.method) {
       case 'GET':
         if (metadata === 'true') {
-          return handleGetMetadata(req, res, comicId)
+          return handleGetMetadata(req, res, assetId)
         } else if (size) {
-          return handleGetImage(req, res, comicId, size)
+          return handleGetImage(req, res, assetId, size)
         } else {
           return res.status(400).json({
             success: false,
@@ -68,14 +90,14 @@ export default async function handler(req, res) {
       case 'DELETE':
         return handleDeleteImage(req, res, comicId)
       default:
-        return res.status(405).json({ 
+        return res.status(405).json({
           success: false,
-          error: 'Method not allowed' 
+          error: 'Method not allowed'
         })
     }
   } catch (error) {
     console.error('Image API Error:', error)
-    return res.status(500).json({ 
+    return res.status(500).json({
       success: false,
       error: 'Internal server error',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -83,7 +105,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function handleGetImage(req, res, comicId, size) {
+async function handleGetImage(req, res, assetId, size) {
   try {
     // Validate size parameter
     const validSizes = ['thumbnail', 'medium', 'full']
@@ -93,22 +115,21 @@ async function handleGetImage(req, res, comicId, size) {
         error: `Invalid size. Must be one of: ${validSizes.join(', ')}`
       })
     }
-    
-    console.log(`[Image API] Retrieving image for comic: ${comicId}, size: ${size}`)
-    
-    // Get the image from MongoDB
-    const imageData = await getCoverImages(comicId)
-    
+
+    console.log(`[Image API] Retrieving image for asset: ${assetId}, size: ${size}`)
+
+    const imageData = await getCoverImages(assetId)
+
     if (!imageData) {
       return res.status(404).json({
         success: false,
         error: 'Image not found'
       })
     }
-    
+
     // Extract the specific size data
     let sizeData = null
-    
+
     if (imageData.images && typeof imageData.images === 'object' && !Array.isArray(imageData.images) && imageData.images[size]) {
       // Multi-size format (object with size keys)
       sizeData = imageData.images[size]
@@ -125,47 +146,59 @@ async function handleGetImage(req, res, comicId, size) {
         mimeType: imageData.mimeType || 'image/jpeg'
       }
     }
-    
+
     if (!sizeData) {
       return res.status(404).json({
         success: false,
         error: `Size '${size}' not available for this image`
       })
     }
-    
-    // Check if this is an S3 reference (has url field) - redirect to CloudFront
+
+    // Check if this is an S3 reference (has url field). Proxy the bytes
+    // through our own origin rather than redirecting — the browser's
+    // authenticated fetch would carry our Authorization header into a
+    // cross-origin request to CloudFront, which has no CORS policy for it
+    // and fails preflight.
     if (isS3Reference(sizeData)) {
-      console.log(`[Image API] Redirecting to S3/CloudFront: ${sizeData.url}`)
-      res.setHeader('Location', sizeData.url)
-      res.setHeader('Cache-Control', 'public, max-age=86400') // Cache redirect for 1 day
-      return res.status(302).end()
+      console.log(`[Image API] Proxying S3/CloudFront image: ${sizeData.url}`)
+      const cdnResponse = await fetch(sizeData.url)
+
+      if (!cdnResponse.ok) {
+        return res.status(cdnResponse.status).json({
+          success: false,
+          error: 'Failed to fetch image from storage'
+        })
+      }
+
+      const imageBuffer = Buffer.from(await cdnResponse.arrayBuffer())
+      res.setHeader('Content-Type', cdnResponse.headers.get('content-type') || 'image/jpeg')
+      res.setHeader('Content-Length', imageBuffer.length)
+      res.setHeader('Cache-Control', 'public, max-age=86400')
+      return res.status(200).send(imageBuffer)
     }
-    
+
     // Fall back to legacy base64 path
     if (isLegacyReference(sizeData)) {
       console.log(`[Image API] Serving legacy base64 image`)
-      
-      // Convert base64 to buffer
+
       const imageBuffer = Buffer.from(sizeData.data, 'base64')
-      
-      // Set appropriate headers
+
       res.setHeader('Content-Type', sizeData.mimeType || 'image/jpeg')
       res.setHeader('Content-Length', imageBuffer.length)
       res.setHeader('Cache-Control', 'public, max-age=31536000') // Cache for 1 year
-      res.setHeader('ETag', `"${comicId}-${size}"`)
-      
+      res.setHeader('ETag', `"${assetId}-${size}"`)
+
       console.log(`[Image API] Successfully serving ${sizeData.mimeType} image, ${imageBuffer.length} bytes`)
-      
-      // Send the image
+
       return res.status(200).send(imageBuffer)
     }
-    
+
     // Neither S3 nor legacy reference found
     return res.status(404).json({
       success: false,
       error: `No valid image data found for size '${size}'`
     })
-    
+
   } catch (error) {
     console.error('[Image API] Image retrieval error:', error)
     return res.status(500).json({
@@ -176,46 +209,39 @@ async function handleGetImage(req, res, comicId, size) {
   }
 }
 
-async function handleGetMetadata(req, res, comicId) {
+async function handleGetMetadata(req, res, assetId) {
   try {
-    console.log(`[Image API] Retrieving metadata for comic: ${comicId}`)
-    
-    // Get the image metadata from MongoDB
-    const imageData = await getCoverImages(comicId)
-    
+    console.log(`[Image API] Retrieving metadata for asset: ${assetId}`)
+
+    const imageData = await getCoverImages(assetId)
+
     if (!imageData) {
       return res.status(404).json({
         success: false,
         error: 'Image not found'
       })
     }
-    
+
     // Set cache headers that include updatedAt in ETag to bust cache on updates
-    // Use must-revalidate to ensure browser checks with server
     res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate')
-    
-    // Include updatedAt timestamp in ETag so cache is invalidated when image is replaced
-    const etag = `"${comicId}-metadata-${imageData.updatedAt || Date.now()}"`
+
+    const etag = `"${assetId}-metadata-${imageData.updatedAt || Date.now()}"`
     res.setHeader('ETag', etag)
-    
-    // Check if client has current version
+
     const clientETag = req.headers['if-none-match']
     if (clientETag === etag) {
       return res.status(304).end()
     }
-    
-    // Build metadata response
+
     const metadata = {
-      comicId,
+      comicId: assetId,
       source: imageData.source || 'unknown',
       createdAt: imageData.createdAt,
       updatedAt: imageData.updatedAt,
       ...imageData.metadata
     }
-    
-    // Add size information if available
+
     if (imageData.images && typeof imageData.images === 'object' && !Array.isArray(imageData.images) && !imageData.images.data) {
-      // Multi-size format (object with size keys)
       metadata.images = {}
       for (const [size, sizeData] of Object.entries(imageData.images)) {
         if (typeof sizeData === 'object') {
@@ -227,7 +253,6 @@ async function handleGetMetadata(req, res, comicId) {
         }
       }
     } else if (imageData.images && typeof imageData.images === 'string') {
-      // Legacy format: images field is a base64 string
       const imageSize = Buffer.from(imageData.images, 'base64').length
       metadata.images = {
         thumbnail: { size: imageSize, mimeType: imageData.mimeType || 'image/jpeg', dimensions: { width: 0, height: 0 } },
@@ -235,7 +260,6 @@ async function handleGetMetadata(req, res, comicId) {
         full: { size: imageSize, mimeType: imageData.mimeType || 'image/jpeg', dimensions: { width: 0, height: 0 } }
       }
     } else if (imageData.imageData) {
-      // Another legacy format: imageData field
       const imageSize = Buffer.from(imageData.imageData, 'base64').length
       metadata.images = {
         medium: {
@@ -245,14 +269,11 @@ async function handleGetMetadata(req, res, comicId) {
         }
       }
     }
-    
-    console.log(`[Image API] Successfully retrieved metadata for comic: ${comicId}`)
-    
-    return res.status(200).json({
-      success: true,
-      metadata
-    })
-    
+
+    console.log(`[Image API] Successfully retrieved metadata for asset: ${assetId}`)
+
+    return res.status(200).json({ success: true, metadata })
+
   } catch (error) {
     console.error('[Image API] Metadata retrieval error:', error)
     return res.status(500).json({
@@ -265,73 +286,19 @@ async function handleGetMetadata(req, res, comicId) {
 
 async function handleDeleteImage(req, res, comicId) {
   try {
-    console.log(`[Image API] Deleting image for comic: ${comicId}`)
-    
-    // First, get the existing cover to check if it has S3 references
-    const existingCover = await getCoverImages(comicId)
-    
-    if (!existingCover) {
-      return res.status(404).json({
-        success: false,
-        error: 'Image not found'
-      })
-    }
-    
-    // Check if any size has S3 references
-    const hasS3Refs = existingCover.images && 
-      Object.values(existingCover.images).some(img => isS3Reference(img))
-    
-    // Delete from S3 first (if configured and has S3 refs)
-    const s3Client = getS3Client()
-    let s3DeleteSuccess = true
-    
-    if (s3Client.isConfigured() && hasS3Refs) {
-      try {
-        console.log(`[Image API] Deleting S3 objects for comic: ${comicId}`)
-        await s3Client.deleteImages(comicId)
-        console.log(`[Image API] S3 deletion successful for comic: ${comicId}`)
-      } catch (s3Error) {
-        // Log but continue - S3 deletion is idempotent
-        console.warn(`[Image API] S3 deletion warning for comic ${comicId}:`, s3Error.message)
-        s3DeleteSuccess = false
-      }
-    }
-    
-    // Delete from MongoDB
-    let mongoDeleteSuccess = false
-    try {
-      mongoDeleteSuccess = await deleteCoverImages(comicId)
-    } catch (mongoError) {
-      // If MongoDB deletion fails after S3 deletion, log orphaned keys
-      if (s3DeleteSuccess && hasS3Refs) {
-        console.error(`[Image API] ORPHANED S3 KEYS - MongoDB deletion failed after S3 deletion for comic: ${comicId}`)
-        console.error(`[Image API] Orphaned keys: covers/${comicId}/*`)
-      }
-      throw mongoError
-    }
-    
-    // Update the comic's hasCover flag
-    try {
-      const database = await connectToDatabase()
-      const comicsCollection = database.collection('comics')
-      
-      if (ObjectId.isValid(comicId) && comicId.length === 24) {
-        await comicsCollection.updateOne(
-          { _id: new ObjectId(comicId) },
-          { $set: { hasCover: false, coverLastUpdated: new Date().toISOString() } }
-        )
-        console.log(`[Image API] Updated hasCover flag to false for comic: ${comicId}`)
-      }
-    } catch (error) {
-      console.warn(`[Image API] Failed to update hasCover flag:`, error.message)
-      // Don't fail the delete if this fails
-    }
-    
+    console.log(`[Image API] Removing cover for comic: ${comicId}`)
+
+    const database = await connectToDatabase()
+    // Copy-on-write: only this account's pointer is cleared. The
+    // underlying asset is left in place — other accounts may still
+    // reference it, and GC is deferred (COM-45).
+    await detachCover(database, { userId: req.userId, comicId })
+
     return res.status(200).json({
       success: true,
-      message: 'Image deleted successfully'
+      message: 'Image removed successfully'
     })
-    
+
   } catch (error) {
     console.error('[Image API] Image deletion error:', error)
     return res.status(500).json({

@@ -3,10 +3,10 @@
  * POST /api/comics/bulk - Bulk create/update comics
  */
 
-import { MongoClient, ObjectId } from 'mongodb'
+import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
-import { getS3Client } from '../s3-client.js'
-import { isS3Reference } from '../s3-serialization.js'
+import { requireAuth } from '../auth.js'
+import { addComic, updateComic, DuplicateComicError } from '../lib/comics.js'
 
 let client
 let db
@@ -37,6 +37,8 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   if (req.method === 'DELETE') {
     return handleDeleteAll(req, res)
   }
@@ -47,7 +49,7 @@ export default async function handler(req, res) {
 
   try {
     const { comics } = req.body
-    
+
     if (!comics || !Array.isArray(comics)) {
       return res.status(400).json({
         success: false,
@@ -57,10 +59,10 @@ export default async function handler(req, res) {
 
     // Filter out invalid comics and normalize data types
     const validComics = comics
-      .filter(comic => 
-        comic && 
-        comic.series && 
-        comic.issueNumber !== undefined && 
+      .filter(comic =>
+        comic &&
+        comic.series &&
+        comic.issueNumber !== undefined &&
         comic.issueNumber !== null &&
         comic.issueNumber !== ""
       )
@@ -81,55 +83,58 @@ export default async function handler(req, res) {
     }
 
     const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Separate comics into updates (have _id) and inserts (new comics)
-    const operations = validComics.map(comic => {
-      // Remove id field and handle _id separately
-      const { _id, id, ...comicData } = comic
-      
-      // If comic has an _id, update it; otherwise insert new
-      if (_id) {
-        // Parse _id as ObjectId
-        const objectId = typeof _id === 'string' && ObjectId.isValid(_id) && _id.length === 24
-          ? new ObjectId(_id)
-          : _id
-        
-        return {
-          replaceOne: {
-            filter: { _id: objectId },
-            replacement: {
-              ...comicData,
-              updatedAt: new Date().toISOString()
-            },
-            upsert: true
-          }
+
+    let upsertedCount = 0
+    let modifiedCount = 0
+    let duplicateCount = 0
+
+    for (const comic of validComics) {
+      const comicId = comic.id || (comic._id ? String(comic._id) : null)
+
+      try {
+        if (comicId) {
+          await updateComic(database, { userId: req.userId, comicId, updates: comic })
+          modifiedCount++
+        } else {
+          await addComic(database, { userId: req.userId, comic })
+          upsertedCount++
         }
-      } else {
-        // New comic - insert with auto-generated ObjectId
-        return {
-          insertOne: {
-            document: {
-              ...comicData,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
+      } catch (error) {
+        if (error instanceof DuplicateComicError) {
+          duplicateCount++
+          continue
+        }
+        // An imported comic carries an id from the source account — if that
+        // id doesn't exist in this account, treat it as a new insert rather
+        // than failing the whole import with a 500.
+        if (comicId && error.message?.includes('not found')) {
+          try {
+            const { id: _dropped, _id: _dropped2, ...comicWithoutId } = comic
+            await addComic(database, { userId: req.userId, comic: comicWithoutId })
+            upsertedCount++
+            continue
+          } catch (addError) {
+            if (addError instanceof DuplicateComicError) {
+              duplicateCount++
+              continue
             }
+            throw addError
           }
         }
+        throw error
       }
-    })
-    
-    const result = await collection.bulkWrite(operations)
-    
+    }
+
     const invalidCount = comics.length - validComics.length
-    
+
     return res.status(200).json({
       success: true,
-      message: `Comics saved to MongoDB: ${result.upsertedCount} new, ${result.modifiedCount} updated${invalidCount > 0 ? `, ${invalidCount} invalid comics skipped` : ''}`,
+      message: `Comics saved: ${upsertedCount} new, ${modifiedCount} updated${duplicateCount > 0 ? `, ${duplicateCount} duplicates skipped` : ''}${invalidCount > 0 ? `, ${invalidCount} invalid comics skipped` : ''}`,
       stats: {
-        upserted: result.upsertedCount,
-        modified: result.modifiedCount,
-        matched: result.matchedCount,
+        upserted: upsertedCount,
+        modified: modifiedCount,
+        matched: modifiedCount,
+        duplicate: duplicateCount,
         invalid: invalidCount
       }
     })
@@ -155,29 +160,14 @@ async function handleDeleteAll(req, res) {
     }
 
     const database = await connectToDatabase()
-    const comicsCollection = database.collection('comics')
-    const coverImagesCollection = database.collection('cover_images')
 
-    // Delete S3 images for each comic that has S3 refs (best effort)
-    const s3Client = getS3Client()
-    if (s3Client.isConfigured()) {
-      const allComics = await comicsCollection.find({}, { projection: { _id: 1 } }).toArray()
-      for (const comic of allComics) {
-        try {
-          await s3Client.deleteImages(comic._id.toString())
-        } catch (s3Error) {
-          console.warn(`[DeleteAll] S3 deletion warning for comic ${comic._id}:`, s3Error.message)
-        }
-      }
-    }
-
-    // Wipe cover_images and comics collections
-    await coverImagesCollection.deleteMany({})
-    const result = await comicsCollection.deleteMany({})
+    // Only this account's rows are removed. Shared cover assets are
+    // intentionally left in place — see COM-45 (GC deferred).
+    const result = await database.collection('comics').deleteMany({ userId: req.userId })
 
     return res.status(200).json({
       success: true,
-      message: `Deleted ${result.deletedCount} comics from the collection`,
+      message: `Deleted ${result.deletedCount} comics from your collection`,
       deletedCount: result.deletedCount
     })
   } catch (error) {

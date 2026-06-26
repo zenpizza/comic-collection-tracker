@@ -1,15 +1,14 @@
 /**
  * RESTful endpoint for individual comic operations
  * GET /api/comics/[id] - Get a specific comic
- * PUT /api/comics/[id] - Update a specific comic  
+ * PUT /api/comics/[id] - Update a specific comic
  * DELETE /api/comics/[id] - Delete a specific comic
  */
 
 import { MongoClient, ObjectId } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
-import { getCoverImages, deleteCoverImages } from '../db-image-storage.js'
-import { getS3Client } from '../s3-client.js'
-import { isS3Reference } from '../s3-serialization.js'
+import { requireAuth } from '../auth.js'
+import { getComic, updateComic, removeComic, DuplicateComicError } from '../lib/comics.js'
 
 let client
 let db
@@ -40,6 +39,8 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   // Support both Vercel (req.query) and Express (req.params)
   const id = req.query?.id || req.params?.id
 
@@ -63,7 +64,7 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error('Comic API Error:', error)
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Internal server error',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
@@ -72,40 +73,24 @@ export default async function handler(req, res) {
 
 async function handleGetComic(req, res, id) {
   try {
-    const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Parse as ObjectId
     if (!ObjectId.isValid(id) || id.length !== 24) {
       return res.status(400).json({
         success: false,
         error: 'Invalid comic ID format'
       })
     }
-    
-    const comic = await collection.findOne({ _id: new ObjectId(id) })
-    
+
+    const database = await connectToDatabase()
+    const comic = await getComic(database, { userId: req.userId, comicId: id })
+
     if (!comic) {
       return res.status(404).json({
         success: false,
         error: 'Comic not found'
       })
     }
-    
-    // Normalize the comic data
-    const normalizedComic = {
-      ...comic,
-      // Convert ObjectId to string for frontend
-      id: comic._id.toString(),
-      series: String(comic.series || ''),
-      issueNumber: String(comic.issueNumber || ''),
-      publisher: comic.publisher ? String(comic.publisher) : comic.publisher
-    }
-    
-    return res.status(200).json({
-      success: true,
-      comic: normalizedComic
-    })
+
+    return res.status(200).json({ success: true, comic })
   } catch (error) {
     console.error('Error fetching comic:', error)
     return res.status(500).json({
@@ -119,7 +104,7 @@ async function handleGetComic(req, res, id) {
 async function handleUpdateComic(req, res, id) {
   try {
     const comic = req.body
-    
+
     if (!comic) {
       return res.status(400).json({
         success: false,
@@ -127,55 +112,29 @@ async function handleUpdateComic(req, res, id) {
       })
     }
 
-    const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Parse as ObjectId
     if (!ObjectId.isValid(id) || id.length !== 24) {
       return res.status(400).json({
         success: false,
         error: 'Invalid comic ID format'
       })
     }
-    
-    // Normalize data types for consistency
-    const normalizedComic = {
-      ...comic,
-      series: String(comic.series || ''),
-      issueNumber: String(comic.issueNumber || ''),
-      publisher: comic.publisher ? String(comic.publisher) : comic.publisher,
-      year: comic.year && !isNaN(comic.year) ? Number(comic.year) : comic.year,
-      updatedAt: new Date().toISOString()
-    }
-    
-    // Remove MongoDB _id and id fields to prevent immutable field error
-    const { _id, id: comicId, ...comicWithoutId } = normalizedComic
-    
-    const result = await collection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: comicWithoutId }
-    )
-    
-    if (result.matchedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Comic not found'
-      })
-    }
-    
-    // Fetch the updated comic to return
-    const updatedComic = await collection.findOne({ _id: new ObjectId(id) })
-    
+
+    const database = await connectToDatabase()
+    const updated = await updateComic(database, { userId: req.userId, comicId: id, updates: comic })
+
     return res.status(200).json({
       success: true,
-      comic: {
-        ...updatedComic,
-        // Convert ObjectId to string for frontend
-        id: updatedComic._id.toString()
-      },
+      comic: updated,
       message: 'Comic updated successfully'
     })
   } catch (error) {
+    if (error instanceof DuplicateComicError) {
+      return res.status(409).json({ success: false, error: error.message })
+    }
+    if (error.message === 'Comic not found in this account\'s collection') {
+      return res.status(404).json({ success: false, error: 'Comic not found' })
+    }
+
     console.error('Error updating comic:', error)
     return res.status(500).json({
       success: false,
@@ -187,58 +146,30 @@ async function handleUpdateComic(req, res, id) {
 
 async function handleDeleteComic(req, res, id) {
   try {
-    const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    // Parse as ObjectId
     if (!ObjectId.isValid(id) || id.length !== 24) {
       return res.status(400).json({
         success: false,
         error: 'Invalid comic ID format'
       })
     }
-    
-    // First check if comic exists
-    const comic = await collection.findOne({ _id: new ObjectId(id) })
-    if (!comic) {
+
+    const database = await connectToDatabase()
+    const deleted = await removeComic(database, { userId: req.userId, comicId: id })
+
+    if (!deleted) {
       return res.status(404).json({
         success: false,
         error: 'Comic not found'
       })
     }
-    
-    // Delete associated cover images first (from S3 and MongoDB)
-    try {
-      // Check if comic has S3 images
-      const coverData = await getCoverImages(id)
-      const hasS3Refs = coverData?.images && 
-        Object.values(coverData.images).some(img => isS3Reference(img))
-      
-      // Delete from S3 first if configured and has S3 refs
-      const s3Client = getS3Client()
-      if (s3Client.isConfigured() && hasS3Refs) {
-        try {
-          await s3Client.deleteImages(id)
-          console.log(`[Comic Delete] Deleted S3 images for comic: ${id}`)
-        } catch (s3Error) {
-          console.warn(`[Comic Delete] S3 deletion warning for comic ${id}:`, s3Error.message)
-        }
-      }
-      
-      // Delete from MongoDB
-      await deleteCoverImages(id)
-      console.log(`[Comic Delete] Deleted cover images from MongoDB for comic: ${id}`)
-    } catch (imageError) {
-      console.warn(`Failed to delete cover images for comic ${id}:`, imageError)
-      // Continue with comic deletion even if image deletion fails
-    }
-    
-    // Delete the comic record
-    const result = await collection.deleteOne({ _id: new ObjectId(id) })
-    
+
+    // Shared cover assets are intentionally left in place — see COM-45
+    // (garbage collection is deferred; an asset with no remaining
+    // references is harmless to leave around for now).
+
     return res.status(200).json({
       success: true,
-      message: 'Comic and associated images deleted successfully'
+      message: 'Comic removed from collection successfully'
     })
   } catch (error) {
     console.error('Error deleting comic:', error)

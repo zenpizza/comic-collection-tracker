@@ -14,6 +14,7 @@
  */
 
 import { storeCoverImages, getCoverImages, deleteCoverImages } from './db-image-storage.js'
+import { requireAuth } from './auth.js'
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -24,6 +25,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
+
+  if (!await requireAuth(req, res)) return
 
   try {
     const url = new URL(req.url, `http://${req.headers.host}`)

@@ -5,6 +5,8 @@
 
 import { MongoClient } from 'mongodb'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { requireAuth } from '../auth.js'
+import { listComics } from '../lib/comics.js'
 
 let client
 let db
@@ -35,94 +37,45 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  if (!await requireAuth(req, res)) return
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
   try {
     const database = await connectToDatabase()
-    const collection = database.collection('comics')
-    
-    const totalDocuments = await collection.countDocuments()
-    const stats = await database.stats()
-    
-    // Get source breakdown
-    const sourceBreakdown = await collection.aggregate([
-      {
-        $group: {
-          _id: '$coverSource',
-          count: { $sum: 1 }
-        }
-      }
-    ]).toArray()
-    
-    const sourceBreakdownObj = sourceBreakdown.reduce((acc, item) => {
-      acc[item._id || 'unknown'] = item.count
+
+    // Scoped to this account's collection only.
+    const comics = await listComics(database, req.userId)
+
+    const countBy = (key) => comics.reduce((acc, comic) => {
+      const value = comic[key] || 'unknown'
+      acc[value] = (acc[value] || 0) + 1
       return acc
     }, {})
-    
-    // Get series breakdown
-    const seriesBreakdown = await collection.aggregate([
-      {
-        $group: {
-          _id: '$series',
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { count: -1 }
-      },
-      {
-        $limit: 10
-      }
-    ]).toArray()
-    
-    // Get publisher breakdown
-    const publisherBreakdown = await collection.aggregate([
-      {
-        $group: {
-          _id: '$publisher',
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { count: -1 }
-      }
-    ]).toArray()
-    
-    // Get year range
-    const yearStats = await collection.aggregate([
-      {
-        $match: {
-          year: { $exists: true, $ne: null, $ne: "" }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          minYear: { $min: "$year" },
-          maxYear: { $max: "$year" }
-        }
-      }
-    ]).toArray()
-    
+
+    const seriesBreakdown = countBy('series')
+    const publisherBreakdown = countBy('publisher')
+
+    const years = comics
+      .map(comic => comic.year)
+      .filter(year => year !== undefined && year !== null && year !== '')
+
     return res.status(200).json({
       success: true,
       stats: {
-        totalDocuments,
-        storageSize: stats.storageSize || 0,
-        sourceBreakdown: sourceBreakdownObj,
-        topSeries: seriesBreakdown.map(item => ({
-          series: item._id,
-          count: item.count
-        })),
-        publishers: publisherBreakdown.map(item => ({
-          publisher: item._id,
-          count: item.count
-        })),
-        yearRange: yearStats.length > 0 ? {
-          earliest: yearStats[0].minYear,
-          latest: yearStats[0].maxYear
+        totalDocuments: comics.length,
+        topSeries: Object.entries(seriesBreakdown)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([series, count]) => ({ series, count })),
+        publishers: Object.entries(publisherBreakdown)
+          .sort((a, b) => b[1] - a[1])
+          .map(([publisher, count]) => ({ publisher, count })),
+        yearRange: years.length > 0 ? {
+          earliest: Math.min(...years),
+          latest: Math.max(...years)
         } : {
           earliest: null,
           latest: null

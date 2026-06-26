@@ -13,10 +13,13 @@
 import Busboy from 'busboy'
 import sharp from 'sharp'
 import { MongoClient, ObjectId } from 'mongodb'
-import { storeCoverImages, getCoverImages } from '../db-image-storage.js'
+import { storeCoverImages } from '../db-image-storage.js'
 import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { getS3Client } from '../s3-client.js'
 import { serializeS3Reference } from '../s3-serialization.js'
+import { requireAuth } from '../auth.js'
+import { getComic, attachCoverAsset } from '../lib/comics.js'
+import { createAsset, findAssetByIdentityKey } from '../lib/coverAssets.js'
 
 let client
 let db
@@ -52,6 +55,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
+
+  if (!await requireAuth(req, res)) return
 
   if (req.method !== 'POST') {
     return res.status(405).json({
@@ -94,44 +99,110 @@ export default async function handler(req, res) {
         error: 'Missing required fields: comicId and image (file or imageUrl)'
       })
     }
-    
+
+    const database = await connectToDatabase()
+    const comic = ObjectId.isValid(comicId)
+      ? await getComic(database, { userId: req.userId, comicId })
+      : null
+    if (!comic) {
+      return res.status(404).json({
+        success: false,
+        error: 'Comic not found in your collection'
+      })
+    }
+
     console.log(`[Upload] Starting upload for comic: ${comicId}`)
     console.log(`[Upload] Image buffer size: ${imageBuffer.length} bytes`)
-    
-    // Check if this is a replacement (existing cover)
-    const existingCover = await getCoverImages(comicId)
-    const isReplacement = existingCover && existingCover.images
-    
+
+    const isReplacement = !!comic.coverAssetId
+
+    // When the cover comes from ComicVine we know the canonical identity.
+    // Prefer comicvine|<apiId> over the comic's current identityKey (which
+    // may still be a manual composite if the comic was bulk-imported before
+    // a ComicVine cover was assigned via BulkCoverManager).
+    const comicVineIdentityKey = (metadata?.source === 'api' && metadata?.apiId)
+      ? `comicvine|${metadata.apiId}`
+      : null
+
+    // If this is a ComicVine-sourced cover (not a genuine user file upload)
+    // for a comic that doesn't have its own cover yet, and another account
+    // already has the shared asset for this exact identity, just reuse it
+    // — re-downloading/re-storing the same bytes would be pure waste.
+    if (!isReplacement && metadata?.source === 'api') {
+      const lookupKey = comicVineIdentityKey || comic.identityKey
+      const existingSharedAsset = await findAssetByIdentityKey(database, lookupKey)
+      if (existingSharedAsset) {
+        console.log(`[Upload] Reusing existing shared asset for identity: ${comic.identityKey}`)
+        await attachCoverAsset(database, { userId: req.userId, comicId, assetId: existingSharedAsset._id })
+
+        const reuseIdentityUpgrade = comicVineIdentityKey && !comic.comicVineId
+          ? { comicVineId: metadata.apiId, identityKey: comicVineIdentityKey }
+          : {}
+
+        if (metadata.volumeId || metadata.volumeName || Object.keys(reuseIdentityUpgrade).length > 0) {
+          await database.collection('comics').updateOne(
+            { _id: new ObjectId(comicId), userId: req.userId },
+            { $set: {
+              ...reuseIdentityUpgrade,
+              ...(metadata.volumeId && { volumeId: metadata.volumeId }),
+              ...(metadata.volumeName && { volumeName: metadata.volumeName }),
+              updatedAt: new Date().toISOString(),
+            } }
+          )
+        }
+
+        return res.status(200).json({
+          success: true,
+          comicId,
+          coverAssetId: existingSharedAsset._id.toString(),
+          storage: 'reused',
+          message: 'Reused existing shared cover'
+        })
+      }
+    }
+
     // Process image into size variants using sharp
     const processedBuffers = await processImageBuffers(imageBuffer)
-    
+
     console.log(`[Upload] Processed images:`, {
       sizes: Object.keys(processedBuffers),
       totalSize: Object.values(processedBuffers).reduce((sum, buf) => sum + buf.length, 0)
     })
-    
+
+    // The uploaded bytes always become a new asset (the user explicitly
+    // chose this image) — only claim the shared identityKey if nobody has
+    // claimed it yet, so a future account adding this issue can reuse it.
+    // Replacing an existing cover always creates a private asset
+    // (identityKey: null) so other accounts' covers are unaffected
+    // (copy-on-write).
+    // Prefer comicvine|<apiId> when available so the asset is discoverable
+    // by identity even if the comic was originally imported manually.
+    let claimIdentityKey = null
+    if (!isReplacement) {
+      const preferredKey = comicVineIdentityKey || comic.identityKey
+      const existingSharedAsset = await findAssetByIdentityKey(database, preferredKey)
+      claimIdentityKey = existingSharedAsset ? null : preferredKey
+    }
+
+    const assetId = new ObjectId()
+    const storageKey = assetId.toString()
+
     // Try S3 upload first, fall back to MongoDB
     const s3Client = getS3Client()
     let storageType = 'MongoDB'
     let imageData = {}
-    
+
     if (s3Client.isConfigured()) {
       console.log(`[Upload] S3 configured, uploading to S3...`)
       storageType = 'S3'
-      
+
       // Upload all size variants to S3
       for (const [sizeName, buffer] of Object.entries(processedBuffers)) {
         if (sizeName === 'original') continue // Skip original for S3
-        
-        const s3Ref = await s3Client.uploadImage(comicId, sizeName, buffer, 'image/jpeg')
+
+        const s3Ref = await s3Client.uploadImage(storageKey, sizeName, buffer, 'image/jpeg')
         imageData[sizeName] = serializeS3Reference(s3Ref)
         console.log(`[Upload] Uploaded ${sizeName} to S3: ${s3Ref.key}`)
-      }
-      
-      // Invalidate CloudFront cache if this is a replacement
-      if (isReplacement) {
-        console.log(`[Upload] Replacement detected, invalidating CloudFront cache...`)
-        await s3Client.invalidateCache(comicId)
       }
     } else {
       console.log(`[Upload] S3 not configured, using MongoDB storage`)
@@ -144,49 +215,45 @@ export default async function handler(req, res) {
         }
       }
     }
-    
-    // Store references/data in MongoDB
-    const result = await storeCoverImages(comicId, imageData, {
+
+    // Store the actual bytes/refs keyed by the new asset id
+    await storeCoverImages(storageKey, imageData, {
       source: metadata?.source || 'upload',
       ...metadata,
       storageType,
       uploadedAt: new Date().toISOString()
     })
-    
-    console.log(`[Upload] Image upload successful for comic: ${comicId}, storage: ${storageType}`)
-    
-    // Update the comic's hasCover flag
-    try {
-      const database = await connectToDatabase()
-      const comicsCollection = database.collection('comics')
-      
-      if (ObjectId.isValid(comicId) && comicId.length === 24) {
-        const updateFields = {
-          hasCover: true,
-          coverLastUpdated: new Date().toISOString()
-        }
-        
-        if (metadata.volumeId) {
-          updateFields.volumeId = metadata.volumeId
-        }
-        if (metadata.volumeName) {
-          updateFields.volumeName = metadata.volumeName
-        }
-        
-        await comicsCollection.updateOne(
-          { _id: new ObjectId(comicId) },
-          { $set: updateFields }
-        )
-        console.log(`[Upload] Updated comic metadata for: ${comicId}`, updateFields)
-      }
-    } catch (error) {
-      console.warn(`[Upload] Failed to update hasCover flag:`, error.message)
+
+    // Register the asset (identity + reuse layer) and point only this
+    // account's comic at it
+    const asset = await createAsset(database, { _id: assetId, identityKey: claimIdentityKey })
+    await attachCoverAsset(database, { userId: req.userId, comicId, assetId: asset._id })
+
+    // If the cover came from ComicVine and the comic doesn't yet have a
+    // comicVineId (e.g. it was bulk-imported before BulkCoverManager ran),
+    // upgrade its identity to the stronger comicvine|<id> form now.
+    const identityUpgrade = comicVineIdentityKey && !comic.comicVineId
+      ? { comicVineId: metadata.apiId, identityKey: comicVineIdentityKey }
+      : {}
+
+    if (metadata.volumeId || metadata.volumeName || Object.keys(identityUpgrade).length > 0) {
+      await database.collection('comics').updateOne(
+        { _id: new ObjectId(comicId), userId: req.userId },
+        { $set: {
+          ...identityUpgrade,
+          ...(metadata.volumeId && { volumeId: metadata.volumeId }),
+          ...(metadata.volumeName && { volumeName: metadata.volumeName }),
+          updatedAt: new Date().toISOString(),
+        } }
+      )
     }
-    
+
+    console.log(`[Upload] Image upload successful for comic: ${comicId}, storage: ${storageType}`)
+
     return res.status(200).json({
       success: true,
-      imageId: result,
-      comicId: comicId,
+      comicId,
+      coverAssetId: asset._id.toString(),
       storage: storageType,
       message: 'Image uploaded successfully'
     })

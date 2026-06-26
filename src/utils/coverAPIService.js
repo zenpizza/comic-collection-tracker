@@ -1,11 +1,13 @@
 /**
  * Cover API Service - External cover image fetching with provider abstraction
  * Handles rate limiting, error handling, and cover search result processing
- * 
+ *
  * NOTE: Marvel API has been deprecated due to the Marvel Developer Portal shutdown.
- * The service now prioritizes Comic Vine API and includes placeholders for 
+ * The service now prioritizes Comic Vine API and includes placeholders for
  * alternative providers like League of Comic Geeks and Grand Comics Database.
  */
+
+import { apiFetch } from './apiClient.js'
 
 class CoverAPIService {
   constructor() {
@@ -281,7 +283,7 @@ class CoverAPIService {
 
       console.log('Using cover search API:', searchUrl.toString())
 
-      const response = await this.makeRequest(searchUrl.toString())
+      const response = await this.makeInternalRequest(searchUrl.toString())
       const data = await response.json()
 
       console.log('Cover search response:', data)
@@ -472,7 +474,7 @@ class CoverAPIService {
 
       console.log('Using cover download proxy for:', coverUrl)
 
-      const response = await this.makeRequest(proxyUrl.toString(), {
+      const response = await this.makeInternalRequest(proxyUrl.toString(), {
         headers: {
           'Accept': 'image/*'
         }
@@ -624,6 +626,37 @@ class CoverAPIService {
     // In a real implementation, you'd use crypto.createHash('md5')
     // For now, return a placeholder
     return 'placeholder-hash'
+  }
+
+  /**
+   * Make a request to one of our own /api endpoints, with the Clerk Bearer
+   * token attached and a timeout. Never use this for third-party URLs
+   * (Marvel, OpenLibrary, raw cover image hosts) — it would leak our
+   * session token to them.
+   */
+  async makeInternalRequest(url, options = {}) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), this.defaultTimeout)
+
+    try {
+      const response = await apiFetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Comic Collection Tracker/1.0',
+          ...options.headers
+        }
+      })
+
+      clearTimeout(timeoutId)
+      return response
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout')
+      }
+      throw error
+    }
   }
 
   /**

@@ -8,6 +8,7 @@ import CoverAPISettings from './CoverAPISettings'
 import imagePipeline from '../utils/imagePipeline'
 import coverAPIService from '../utils/coverAPIService'
 import coverMetadataService from '../utils/coverMetadataService'
+import { apiFetch } from '../utils/apiClient'
 import './ComicForm.css'
 
 function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existingComics = [] }) {
@@ -56,12 +57,13 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
   // Auto-fetch covers when series and issue are filled
   useEffect(() => {
-    if (autoFetchEnabled && 
-        formData.series && 
-        formData.issueNumber && 
-        !coverData && 
-        !isSearchingCovers) {
-      
+    if (autoFetchEnabled &&
+        formData.series &&
+        formData.issueNumber &&
+        !coverData &&
+        !isSearchingCovers &&
+        !showCoverSelector) {
+
       // Debounce the search to avoid too many API calls
       const searchTimeout = setTimeout(() => {
         searchForCovers()
@@ -69,7 +71,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
       return () => clearTimeout(searchTimeout)
     }
-  }, [formData.series, formData.issueNumber, formData.publisher, autoFetchEnabled, coverData, isSearchingCovers])
+  }, [formData.series, formData.issueNumber, formData.publisher, autoFetchEnabled, coverData, isSearchingCovers, showCoverSelector])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -89,6 +91,11 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       comicData.coverData = coverData
       comicData.hasCover = true
       comicData.coverSource = coverData.metadata?.source || 'upload'
+      // ComicVine's issue id, when known, is a stronger identity than the
+      // series/issue/publisher text composite (see buildIdentityKey)
+      if (coverData.metadata?.apiId && coverData.metadata?.source === 'api') {
+        comicData.comicVineId = coverData.metadata.apiId
+      }
       
       // Store cover metadata for source tracking
       if (coverData.metadata) {
@@ -262,14 +269,42 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       const { parseIssueForSearch } = await import('../utils/issueParser')
       const { series: searchSeries, issue: searchIssue } = parseIssueForSearch(formData.series, formData.issueNumber)
       
-      console.log('Searching for covers:', { 
-        series: searchSeries, 
-        issue: searchIssue, 
+      console.log('Searching for covers:', {
+        series: searchSeries,
+        issue: searchIssue,
         publisher: formData.publisher,
         year: formData.year,
         original: { series: formData.series, issue: formData.issueNumber }
       })
-      
+
+      // Another account may have already added this issue — reuse its
+      // cached metadata/cover instead of calling ComicVine again.
+      const lookupParams = new URLSearchParams({
+        series: searchSeries,
+        issueNumber: searchIssue,
+        publisher: formData.publisher || '',
+        variant: formData.variant || ''
+      })
+      const lookupResponse = await apiFetch(`/api/comics/metadata-lookup?${lookupParams}`)
+      const lookupResult = lookupResponse.ok ? await lookupResponse.json() : null
+
+      if (lookupResult?.metadata?.hasCover) {
+        console.log('Found existing shared cover, skipping ComicVine search:', lookupResult.metadata)
+        if (lookupResult.metadata.volumeName) {
+          setFormData(prev => ({
+            ...prev,
+            volumeId: lookupResult.metadata.volumeId || '',
+            volumeName: lookupResult.metadata.volumeName || ''
+          }))
+        }
+        setCoverError(null)
+        // No coverData to upload (the cover is already saved on the shared
+        // metadata record) — stop the auto-fetch effect from retrying, since
+        // it only stops once coverData is set or auto-fetch is disabled.
+        setAutoFetchEnabled(false)
+        return
+      }
+
       const results = await coverAPIService.searchCovers(
         searchSeries,
         searchIssue,
@@ -282,6 +317,10 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       if (results.length === 0) {
         console.log('No covers found for', formData.series, formData.issueNumber)
         setCoverError('No covers found for this comic. You can upload a cover manually.')
+        // Without this, the auto-fetch effect's guard (!coverData) stays
+        // satisfied forever and re-triggers the same failed search every
+        // second since coverData never gets set on this path.
+        setAutoFetchEnabled(false)
         return
       }
 
@@ -296,7 +335,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
     } catch (error) {
       console.error('Cover search error:', error)
-      
+
       if (error.message.includes('service is not available') || error.message.includes('backend server')) {
         setCoverError('Cover search service is not available. Please ensure the backend server is running, or upload covers manually.')
       } else if (error.message.includes('backend proxy') || error.message.includes('CORS')) {
@@ -304,6 +343,10 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       } else {
         setCoverError(`Cover search failed: ${error.message}`)
       }
+      // Same loop-prevention as the zero-results path above — a failed
+      // search never sets coverData, so auto-fetch must be disabled here
+      // too or the effect retries the same failing search every second.
+      setAutoFetchEnabled(false)
     } finally {
       setIsSearchingCovers(false)
     }

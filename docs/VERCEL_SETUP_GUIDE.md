@@ -2,6 +2,7 @@
 
 ## Quick Setup Checklist
 
+- [ ] Clerk account created and application configured
 - [ ] Production environment variables configured
 - [ ] Preview environment variables configured  
 - [ ] Preview database initialized in MongoDB Atlas
@@ -16,39 +17,76 @@
 2. Select your project: `comic-collection-tracker`
 3. Click **Settings** → **Environment Variables**
 
-### 2. Configure Production Environment
+### 2. Set Up Clerk Authentication
 
-Click **Add New** and enter:
+The app uses [Clerk](https://clerk.com) for user authentication.
 
-**Variable 1:**
+1. Go to https://dashboard.clerk.com and create an account
+2. Create a new application (choose "React" as your framework)
+3. Go to **API Keys** in the Clerk dashboard
+4. Copy the **Publishable key** and **Secret key**
+
+### 3. Configure Production Environment
+
+Click **Add New** and enter each variable:
+
+**MONGODB_URI:**
 ```
 Name: MONGODB_URI
 Value: mongodb+srv://<user>:<password>@<cluster>.mongodb.net/comic-collection?retryWrites=true&w=majority&appName=comic-collection-tracker
 Environment: ✅ Production only
 ```
 
-**Variable 2:**
+**COMICVINE_API_KEY:**
 ```
 Name: COMICVINE_API_KEY
 Value: <your-comicvine-api-key>
 Environment: ✅ Production only
 ```
 
-### 3. Configure Preview Environment
+**VITE_CLERK_PUBLISHABLE_KEY:**
+```
+Name: VITE_CLERK_PUBLISHABLE_KEY
+Value: pk_live_... (your Clerk publishable key)
+Environment: ✅ Production only
+```
 
-Click **Add New** and enter:
+**CLERK_SECRET_KEY:**
+```
+Name: CLERK_SECRET_KEY
+Value: sk_live_... (your Clerk secret key)
+Environment: ✅ Production only
+```
 
-**Variable 1:**
+### 4. Configure Preview Environment
+
+Click **Add New** and enter each variable:
+
+**MONGODB_URI:**
 ```
 Name: MONGODB_URI
 Value: mongodb+srv://<user>:<password>@<cluster>.mongodb.net/comic-collection-preview?retryWrites=true&w=majority&appName=comic-collection-tracker
 Environment: ✅ Preview only
 ```
 
-**Variable 2:**
+**COMICVINE_API_KEY:**
 ```
 Name: COMICVINE_API_KEY
 Value: <your-comicvine-api-key>
+Environment: ✅ Preview only
+```
+
+**VITE_CLERK_PUBLISHABLE_KEY:**
+```
+Name: VITE_CLERK_PUBLISHABLE_KEY
+Value: pk_test_... (your Clerk test publishable key)
+Environment: ✅ Preview only
+```
+
+**CLERK_SECRET_KEY:**
+```
+Name: CLERK_SECRET_KEY
+Value: sk_test_... (your Clerk test secret key)
 Environment: ✅ Preview only
 ```
 
@@ -129,8 +167,12 @@ git push origin --delete test/preview-deployment
 |----------|-----------|---------|---------------------|
 | `MONGODB_URI` | `...comic-collection?...` | `...comic-collection-preview?...` | `mongodb://localhost:27017/...` |
 | `COMICVINE_API_KEY` | Same for all | Same for all | Same for all |
+| `VITE_CLERK_PUBLISHABLE_KEY` | `pk_live_...` | `pk_test_...` | `pk_test_...` |
+| `CLERK_SECRET_KEY` | `sk_live_...` | `sk_test_...` | `sk_test_...` |
 | `VERCEL_ENV` | `production` | `preview` | Not set |
 | `NODE_ENV` | `production` | `production` | `development` |
+
+> **Note**: `VITE_CLERK_PUBLISHABLE_KEY` is intentionally a frontend variable (prefixed `VITE_`). It is a public key by design — safe to embed in the browser bundle. `CLERK_SECRET_KEY` is server-only and never exposed to the frontend.
 
 ## Verification Commands
 

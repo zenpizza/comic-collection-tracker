@@ -199,7 +199,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
       // Handle cover removal
       if (uploadData.removed) {
         console.log('Removing cover for comic:', comic.id)
-        
+
         const result = await coverUpdateService.removeCover(comic.id)
         
         const updatedComic = {
@@ -261,10 +261,10 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
     if (confirmed) {
       try {
         console.log('Deleting cover for comic:', comic.id)
-        
+
         // Use centralized cover update service
         const { default: coverUpdateService } = await import('../utils/coverUpdateService.js')
-        
+
         const result = await coverUpdateService.removeCover(comic.id)
         
         // Update comic metadata to remove cover references

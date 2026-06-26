@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useAuth, useUser, UserButton, SignIn, Show } from '@clerk/react'
 import ComicForm from './components/ComicForm'
 import BulkImport from './components/BulkImport'
 import UnifiedCollectionView from './components/UnifiedCollectionView'
@@ -10,6 +11,7 @@ import dataStore from './utils/dataStore'
 import coverErrorHandler from './utils/errorHandling'
 import coverUpdateService from './utils/coverUpdateService'
 import { getSortedUniqueSeriesNames } from './utils/sortUtils'
+import { configureApiClient } from './utils/apiClient'
 import './App.css'
 
 // Error Boundary Component
@@ -57,10 +59,14 @@ function App() {
   const [recentlyImportedIds, setRecentlyImportedIds] = useState(null)
   const [recentlyImportedCount, setRecentlyImportedCount] = useState(0)
 
-  // Load comics from persistent storage on mount
+  const { getToken, isSignedIn, isLoaded: isAuthLoaded } = useAuth()
+
+  // Configure the API client with the Clerk token getter, then load data
   useEffect(() => {
+    if (!isAuthLoaded || !isSignedIn) return
+    configureApiClient(getToken)
     loadComicsFromStore()
-  }, [])
+  }, [isAuthLoaded, isSignedIn, getToken])
 
   const loadComicsFromStore = async () => {
     try {
@@ -110,8 +116,13 @@ function App() {
       // Save to database first (backend will generate ObjectId)
       const savedComic = await dataStore.addComic(newComic)
       
-      // If we have cover data and a valid comic ID, upload the cover
-      if (coverData && savedComic?.id) {
+      // If we have cover data and a valid comic ID, upload the cover —
+      // but only if the backend didn't already reuse an existing shared
+      // cover for this identity (savedComic.hasCover). Uploading here
+      // unconditionally would create a redundant private asset on top of
+      // the one just reused, since the upload endpoint always treats an
+      // already-covered comic as a replacement.
+      if (coverData && savedComic?.id && !savedComic?.hasCover) {
         console.log('Uploading cover for new comic:', savedComic.id)
         try {
           // Get the image blob from coverData
@@ -142,6 +153,12 @@ function App() {
     } catch (error) {
       console.error('Error adding comic:', error)
       setSaveStatus('error')
+
+      if (error.message.includes('409')) {
+        alert('You already own this issue — duplicate copies aren\'t supported yet.')
+        return
+      }
+
       // Handle error through error handler
       await coverErrorHandler.handleError(error, {
         operation: 'add_comic',
@@ -339,14 +356,23 @@ function App() {
   return (
     <AppErrorBoundary>
       <ErrorFeedbackProvider errorHandler={coverErrorHandler}>
+        <Show when="signed-out">
+          <div className="sign-in-screen">
+            <SignIn />
+          </div>
+        </Show>
+        <Show when="signed-in">
         <div className="app app-shell">
           <header className="app-header app-topbar">
             <h1 className="app-title">Comic Collection Tracker</h1>
-            <div className="save-status" role="status" aria-live="polite">
-              {isLoading && <span className="status loading save-chip save-chip--loading">Loading...</span>}
-              {!isLoading && saveStatus === 'saving' && <span className="status saving save-chip save-chip--saving">Saving...</span>}
-              {!isLoading && saveStatus === 'saved' && <span className="status saved save-chip save-chip--saved">Saved</span>}
-              {!isLoading && saveStatus === 'error' && <span className="status error save-chip save-chip--error">Save Error</span>}
+            <div className="header-right">
+              <div className="save-status" role="status" aria-live="polite">
+                {isLoading && <span className="status loading save-chip save-chip--loading">Loading...</span>}
+                {!isLoading && saveStatus === 'saving' && <span className="status saving save-chip save-chip--saving">Saving...</span>}
+                {!isLoading && saveStatus === 'saved' && <span className="status saved save-chip save-chip--saved">Saved</span>}
+                {!isLoading && saveStatus === 'error' && <span className="status error save-chip save-chip--error">Save Error</span>}
+              </div>
+              <UserButton />
             </div>
           </header>
 
@@ -450,6 +476,7 @@ function App() {
         />
       )}
         </div>
+        </Show>
       </ErrorFeedbackProvider>
     </AppErrorBoundary>
   )

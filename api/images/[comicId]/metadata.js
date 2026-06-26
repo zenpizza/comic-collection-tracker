@@ -6,8 +6,31 @@
  * Returns S3/CloudFront URLs when available.
  */
 
+import { MongoClient, ObjectId } from 'mongodb'
 import { getCoverImages } from '../../db-image-storage.js'
 import { isS3Reference, isLegacyReference } from '../../s3-serialization.js'
+import { requireAuth } from '../../auth.js'
+import { getMongoDBUri, getDatabaseName } from '../../config.js'
+import { getComic } from '../../lib/comics.js'
+
+let client
+let db
+
+async function connectToDatabase() {
+  if (db) {
+    return db
+  }
+
+  try {
+    client = new MongoClient(getMongoDBUri())
+    await client.connect()
+    db = client.db(getDatabaseName())
+    return db
+  } catch (error) {
+    console.error('MongoDB connection error:', error)
+    throw error
+  }
+}
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -18,6 +41,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
+
+  if (!await requireAuth(req, res)) return
 
   if (req.method !== 'GET') {
     return res.status(405).json({
@@ -36,22 +61,34 @@ export default async function handler(req, res) {
       })
     }
     
-    console.log(`[Metadata API] Retrieving metadata for comic: ${comicId}`)
-    
+    const database = await connectToDatabase()
+    const comic = ObjectId.isValid(comicId)
+      ? await getComic(database, { userId: req.userId, comicId })
+      : null
+    if (!comic || !comic.coverAssetId) {
+      return res.status(404).json({
+        success: false,
+        error: 'Image not found'
+      })
+    }
+    const assetId = comic.coverAssetId
+
+    console.log(`[Metadata API] Retrieving metadata for asset: ${assetId}`)
+
     // Get the image metadata from MongoDB
-    const imageData = await getCoverImages(comicId)
-    
+    const imageData = await getCoverImages(assetId)
+
     if (!imageData) {
       return res.status(404).json({
         success: false,
         error: 'Image not found'
       })
     }
-    
+
     // Set cache headers that include updatedAt in ETag to bust cache on updates
     res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate')
-    
-    const etag = `"${comicId}-metadata-${imageData.updatedAt || Date.now()}"`
+
+    const etag = `"${assetId}-metadata-${imageData.updatedAt || Date.now()}"`
     res.setHeader('ETag', etag)
     
     // Check if client has current version

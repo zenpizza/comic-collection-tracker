@@ -48,6 +48,19 @@ Set the environment with:
 NODE_ENV=development npm run server:dev
 ```
 
+### Authentication (Clerk)
+
+The app uses [Clerk](https://clerk.com) for authentication. Your `.env.development` must include:
+
+```
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...   # From Clerk dashboard → API Keys
+CLERK_SECRET_KEY=sk_test_...             # From Clerk dashboard → API Keys
+```
+
+Both keys are available from https://dashboard.clerk.com → **API Keys**.
+- `VITE_CLERK_PUBLISHABLE_KEY` is a public key (safe to embed in the browser).
+- `CLERK_SECRET_KEY` is a secret — never commit it or expose it publicly.
+
 ## Available Scripts
 
 ### Database Management

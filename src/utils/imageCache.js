@@ -4,6 +4,7 @@
  */
 
 import imageStorage from './imageStorage.js'
+import { apiFetch } from './apiClient.js'
 
 class ImageCacheService {
   constructor() {
@@ -725,7 +726,7 @@ class ImageCacheService {
    */
   async fetchRemoteImage(comicId, size) {
     try {
-      const response = await fetch(`/api/images/${comicId}/${size}`)
+      const response = await apiFetch(`/api/images/${comicId}/${size}`)
       
       if (!response.ok) {
         if (response.status === 404) {
