@@ -208,8 +208,8 @@ function App() {
       setSaveStatus('saving')
       const beforeCount = comics.length
       
-      // Save to database first using bulk operation
-      await dataStore.saveComics([...comics, ...newComics])
+      // Save to database first using bulk operation — only send new comics, not the full collection
+      await dataStore.saveComics(newComics)
       // Then refresh from database to get the current state
       await loadComicsFromStore()
       setSaveStatus('saved')
