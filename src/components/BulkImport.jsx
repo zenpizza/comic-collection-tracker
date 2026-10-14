@@ -97,7 +97,7 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
 
   const generateRangeComics = () => {
     if (!rangeData.series || !rangeData.startIssue || !rangeData.endIssue) {
-      alert('Please fill in series name, start issue, and end issue')
+      setFeedback({ type: 'error', message: 'Please fill in series name, start issue, and end issue.' })
       return
     }
 
@@ -139,7 +139,7 @@ function BulkImport({ onAddMultiple, existingSeries = [], existingPublishers = [
 
   const handleImport = async () => {
     if (previewComics.length === 0) {
-      alert('No comics to import. Please generate a preview first.')
+      setFeedback({ type: 'error', message: 'No comics to import. Please generate a preview first.' })
       return
     }
 
