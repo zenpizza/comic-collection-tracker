@@ -304,7 +304,7 @@ function MissingIssues({ comics }) {
                 </div>
                 <div className="stat">
                   <span className="stat-number">
-                    {Math.round((selectedSeriesComics.length / parseInt(maxIssue)) * 100)}%
+                    {Math.round((selectedSeriesComics.filter(c => parseIssueNumber(c.issueNumber).type === 'regular').length / parseInt(maxIssue)) * 100)}%
                   </span>
                   <span className="stat-label">Complete</span>
                 </div>
