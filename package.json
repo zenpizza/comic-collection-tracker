@@ -36,7 +36,7 @@
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.955.0",
     "@aws-sdk/client-s3": "^3.955.0",
-    "@clerk/backend": "^3.2.9",
+    "@clerk/backend": "^3.2.14",
     "@clerk/react": "^6.3.0",
     "busboy": "^1.6.0",
     "commander": "^11.1.0",
