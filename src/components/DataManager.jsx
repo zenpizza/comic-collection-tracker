@@ -62,7 +62,6 @@ function DataManager({ comics, onImport, onRefresh }) {
     } catch (error) {
       console.error('Error exporting data:', error)
       setStatusMessage({ type: 'error', message: 'Error exporting data. Please try again.' })
-      alert('Error exporting data. Please try again.')
     } finally {
       setBusyAction(null)
     }
@@ -81,7 +80,6 @@ function DataManager({ comics, onImport, onRefresh }) {
       const comics = await dataStore.importData(importedData)
       onImport(comics)
       setStatusMessage({ type: 'success', message: `Imported ${comics.length} comics successfully.` })
-      alert(`Successfully imported ${comics.length} comics!`)
       
       // Reset file input
       if (fileInputRef.current) {
@@ -90,7 +88,6 @@ function DataManager({ comics, onImport, onRefresh }) {
     } catch (error) {
       console.error('Error importing data:', error)
       setStatusMessage({ type: 'error', message: 'Error importing data. Please check the file format and try again.' })
-      alert('Error importing data. Please check the file format and try again.')
     } finally {
       setBusyAction(null)
     }
