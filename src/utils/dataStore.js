@@ -77,9 +77,6 @@ class ComicDataStore {
         }
       }
 
-      // Always save to localStorage as backup
-      localStorage.setItem('comicCollection', JSON.stringify(comics))
-
       // Save to cloud storage if in production
       if (this.isProduction) {
         const response = await apiFetch('/api/comics/bulk', {
