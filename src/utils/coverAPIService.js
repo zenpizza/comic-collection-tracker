@@ -315,8 +315,8 @@ class CoverAPIService {
    */
   async searchMarvel(series, issue, publisher) {
     const provider = this.providers.get('marvel')
-    if (!provider.apiKey || !provider.privateKey) {
-      console.warn('Marvel API keys not configured')
+    if (provider.deprecated || !provider.apiKey || !provider.privateKey) {
+      console.warn('Marvel API provider is deprecated and has been disabled')
       return []
     }
 
@@ -617,15 +617,6 @@ class CoverAPIService {
     if (width >= 400 || height >= 600) return 'medium'
     
     return 'low'
-  }
-
-  /**
-   * Generate Marvel API hash
-   */
-  generateMarvelHash(timestamp, privateKey, publicKey) {
-    // In a real implementation, you'd use crypto.createHash('md5')
-    // For now, return a placeholder
-    return 'placeholder-hash'
   }
 
   /**
