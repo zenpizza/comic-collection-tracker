@@ -34,8 +34,8 @@
     "prepare": "husky || true"
   },
   "dependencies": {
-    "@aws-sdk/client-cloudfront": "^3.955.0",
-    "@aws-sdk/client-s3": "^3.955.0",
+    "@aws-sdk/client-cloudfront": "^3.1151.0",
+    "@aws-sdk/client-s3": "^3.1151.0",
     "@clerk/backend": "^3.2.9",
     "@clerk/react": "^6.3.0",
     "busboy": "^1.6.0",
