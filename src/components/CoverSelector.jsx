@@ -66,7 +66,11 @@ function CoverSelector({
           variant: selectedCover.variant,
           quality: selectedCover.quality,
           dimensions: selectedCover.dimensions,
-          downloadedAt: new Date().toISOString()
+          downloadedAt: new Date().toISOString(),
+          // ComicVine volume/publisher, used to auto-fill the comic's fields
+          publisher: selectedCover.metadata?.publisher,
+          volumeId: selectedCover.metadata?.volumeId,
+          volumeName: selectedCover.metadata?.volumeName
         },
         previewUrl: URL.createObjectURL(coverBlob)
       }
