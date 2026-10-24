@@ -10,6 +10,7 @@ import { ErrorFeedbackProvider } from './components/ErrorFeedback'
 import dataStore from './utils/dataStore'
 import coverErrorHandler from './utils/errorHandling'
 import coverUpdateService from './utils/coverUpdateService'
+import coverMetadataService from './utils/coverMetadataService'
 import { getSortedUniqueSeriesNames } from './utils/sortUtils'
 import { configureApiClient } from './utils/apiClient'
 import './App.css'
@@ -139,6 +140,12 @@ function App() {
               volumeName: coverData.metadata?.volumeName
             })
             console.log('Cover uploaded successfully for comic:', savedComic.id)
+
+            // Record source/attribution under the real MongoDB id, now that it exists
+            if (coverData.metadata) {
+              coverMetadataService.storeCoverMetadata(savedComic.id, coverData.metadata)
+                .catch(error => console.error('Error storing cover metadata:', error))
+            }
           }
         } catch (coverError) {
           console.error('Failed to upload cover:', coverError)

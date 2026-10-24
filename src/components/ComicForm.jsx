@@ -7,7 +7,6 @@ import CoverAPISettings from './CoverAPISettings'
 
 import imagePipeline from '../utils/imagePipeline'
 import coverAPIService from '../utils/coverAPIService'
-import coverMetadataService from '../utils/coverMetadataService'
 import { apiFetch } from '../utils/apiClient'
 import './ComicForm.css'
 
@@ -36,6 +35,8 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
   const [autoFetchEnabled, setAutoFetchEnabled] = useState(true)
   const [showAPISettings, setShowAPISettings] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Stable for the lifetime of one form entry; regenerated after each submit
+  const [uploaderComicId, setUploaderComicId] = useState(() => `form_${Date.now()}`)
 
   // Check for duplicates when series or issue number changes
   useEffect(() => {
@@ -96,12 +97,6 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       if (coverData.metadata?.apiId && coverData.metadata?.source === 'api') {
         comicData.comicVineId = coverData.metadata.apiId
       }
-      
-      // Store cover metadata for source tracking
-      if (coverData.metadata) {
-        coverMetadataService.storeCoverMetadata(comicData.id || `temp_${Date.now()}`, coverData.metadata)
-          .catch(error => console.error('Error storing cover metadata:', error))
-      }
     }
 
     try {
@@ -121,6 +116,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       })
       setCoverData(null)
       setCoverError(null)
+      setUploaderComicId(`form_${Date.now()}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -650,7 +646,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
             </div>
 
             <CoverUploader
-              comicId={`form_${Date.now()}`}
+              comicId={uploaderComicId}
               onUploadComplete={handleCoverUploadComplete}
               onUploadError={handleCoverUploadError}
               currentCover={coverData?.previewUrl}
