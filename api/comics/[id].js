@@ -5,29 +5,10 @@
  * DELETE /api/comics/[id] - Delete a specific comic
  */
 
-import { MongoClient, ObjectId } from 'mongodb'
-import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { ObjectId } from 'mongodb'
+import { connectToDatabase } from '../lib/mongo.js'
 import { requireAuth } from '../auth.js'
 import { getComic, updateComic, removeComic, DuplicateComicError } from '../lib/comics.js'
-
-let client
-let db
-
-async function connectToDatabase() {
-  if (db) {
-    return db
-  }
-
-  try {
-    client = new MongoClient(getMongoDBUri())
-    await client.connect()
-    db = client.db(getDatabaseName())
-    return db
-  } catch (error) {
-    console.error('MongoDB connection error:', error)
-    throw error
-  }
-}
 
 export default async function handler(req, res) {
   // Set CORS headers

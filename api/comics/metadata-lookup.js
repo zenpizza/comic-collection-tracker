@@ -7,29 +7,9 @@
  * API, avoiding a redundant external request.
  */
 
-import { MongoClient } from 'mongodb'
-import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { connectToDatabase } from '../lib/mongo.js'
 import { requireAuth } from '../auth.js'
 import { buildIdentityKey } from '../lib/comics.js'
-
-let client
-let db
-
-async function connectToDatabase() {
-  if (db) {
-    return db
-  }
-
-  try {
-    client = new MongoClient(getMongoDBUri())
-    await client.connect()
-    db = client.db(getDatabaseName())
-    return db
-  } catch (error) {
-    console.error('MongoDB connection error:', error)
-    throw error
-  }
-}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')

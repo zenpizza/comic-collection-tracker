@@ -2,37 +2,10 @@
  * Comics API endpoint - handles all comic operations with MongoDB
  */
 
-import { MongoClient } from 'mongodb'
-import { getMongoDBUri, getDatabaseName } from './config.js'
+import { connectToDatabase } from './lib/mongo.js'
 import { requireAuth } from './auth.js'
 import { getOrCreateAccount } from './lib/accounts.js'
 import { addComic, listComics, DuplicateComicError } from './lib/comics.js'
-
-let client
-let db
-
-/**
- * Connect to MongoDB database
- */
-async function connectToDatabase() {
-  if (db) {
-    return db
-  }
-
-  try {
-    const uri = getMongoDBUri()
-    const dbName = getDatabaseName()
-
-    client = new MongoClient(uri)
-    await client.connect()
-    db = client.db(dbName)
-
-    return db
-  } catch (error) {
-    console.error('MongoDB connection error:', error)
-    throw error
-  }
-}
 
 export default async function handler(req, res) {
   // Set CORS headers
