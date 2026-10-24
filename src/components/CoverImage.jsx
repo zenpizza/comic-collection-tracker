@@ -61,7 +61,7 @@ function CoverImage({
   // Load image dynamically when needed
   useEffect(() => {
     let mounted = true
-    let blobUrl = null
+    let release = null
 
     async function loadImage() {
       console.log('[CoverImage] loadImage called:', { comicId, isInView, hasCover: comic?.hasCover })
@@ -72,11 +72,15 @@ function CoverImage({
         console.log('[CoverImage] Attempting to fetch from API:', { comicId, size })
         try {
           setIsLoading(true)
-          blobUrl = await ImageURLService.getImageUrl(comicId, size)
-          console.log('[CoverImage] API fetch result:', blobUrl ? 'success' : 'null')
-          
-          if (mounted && blobUrl) {
-            setCurrentImageUrl(blobUrl)
+          const result = await ImageURLService.getImageUrlWithRevoke(comicId, size)
+          console.log('[CoverImage] API fetch result:', result ? 'success' : 'null')
+
+          if (result && !mounted) {
+            // Unmounted while loading — nothing will display this URL
+            result.revoke()
+          } else if (result) {
+            release = result.revoke
+            setCurrentImageUrl(result.url)
             setHasError(false)
           } else if (mounted) {
             setCurrentImageUrl(fallbackStrategy.placeholderUrl)
@@ -100,7 +104,8 @@ function CoverImage({
 
     return () => {
       mounted = false
-      // Note: blob URLs are auto-revoked by ImageURLService
+      // Release the blob URL now that this image no longer displays it
+      if (release) release()
     }
   }, [comicId, size, isInView, fallbackStrategy.placeholderUrl])
 

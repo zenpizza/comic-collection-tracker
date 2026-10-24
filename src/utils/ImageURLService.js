@@ -106,8 +106,8 @@ class ImageURLService {
 
     this.cleanupTimer = null
     this.operationLocks = new Map() // Prevent race conditions
-    this.lockCleanupTimer = null // Cleanup stale locks
     this.createdUrls = new Set() // Track created URLs for emergency cleanup
+    this.urlRefCounts = new Map() // Blob URLs held by mounted consumers (url -> count)
     this._onBeforeUnload = null // Store reference for proper cleanup
 
     this.config = {
@@ -137,7 +137,6 @@ class ImageURLService {
 
     if (this.isBrowser) {
       this.startCleanupTimer()
-      this.startLockCleanupTimer()
       // Cleanup on page unload - store reference for proper cleanup
       this._onBeforeUnload = () => this.destroy()
       window.addEventListener('beforeunload', this._onBeforeUnload)
@@ -178,8 +177,9 @@ class ImageURLService {
   }
 
   /**
-   * Get image URL with automatic cleanup (SAFE BY DEFAULT)
-   * URLs are automatically revoked after 30 seconds to prevent memory leaks
+   * Get image URL with automatic cleanup
+   * URLs are automatically revoked after 30 seconds to prevent memory leaks, so
+   * don't use this for an <img> that stays mounted — use getImageUrlWithRevoke()
    * @param {string} comicId - Comic identifier
    * @param {string} size - Image size (thumbnail, medium, full)
    * @param {Object} options - Additional options
@@ -230,10 +230,16 @@ class ImageURLService {
     const operationPromise = this._getImageUrlInternal(validComicId, size, options)
     this.operationLocks.set(cacheKey, operationPromise)
 
+    // Only remove the lock if it is still ours — a later request may have
+    // replaced it after the timeout fired.
+    const releaseLock = () => {
+      if (this.operationLocks.get(cacheKey) === operationPromise) {
+        this.operationLocks.delete(cacheKey)
+      }
+    }
+
     // Set timeout for operation lock cleanup
-    const timeoutId = setTimeout(() => {
-      this.operationLocks.delete(cacheKey)
-    }, this.config.lockTimeout)
+    const timeoutId = setTimeout(releaseLock, this.config.lockTimeout)
 
     try {
       const result = await operationPromise
@@ -244,7 +250,7 @@ class ImageURLService {
     } finally {
       // Clear timeout and delete lock
       clearTimeout(timeoutId)
-      this.operationLocks.delete(cacheKey)
+      releaseLock()
     }
   }
 
@@ -259,9 +265,18 @@ class ImageURLService {
     const url = await this._getImageUrlUnsafe(comicId, size, options)
     if (!url) return null
 
+    // Concurrent requests for the same image share one URL, so count holders
+    // and only revoke once the last one releases it.
+    this.retainUrl(url)
+    let released = false
+
     return {
       url,
-      revoke: () => this.revokeUrl(url)
+      revoke: () => {
+        if (released) return
+        released = true
+        this.releaseRetainedUrl(url)
+      }
     }
   }
 
@@ -277,9 +292,9 @@ class ImageURLService {
     const url = await this._getImageUrlUnsafe(comicId, size, options)
     if (!url) return null
 
-    // Schedule automatic revocation
+    // Schedule automatic revocation (skipped if a consumer still holds the URL)
     setTimeout(() => {
-      this.revokeUrl(url)
+      this.revokeUrlIfUnheld(url)
     }, autoRevokeDelay)
 
     return url
@@ -372,7 +387,7 @@ class ImageURLService {
       const existingUrl = await this._getImageUrlUnsafe(validComicId, size, { skipAPI: true })
       if (existingUrl) {
         // Immediately revoke since we only needed to check cache
-        this.revokeUrl(existingUrl)
+        this.revokeUrlIfUnheld(existingUrl)
         return true
       }
 
@@ -936,19 +951,6 @@ class ImageURLService {
   }
 
   /**
-   * Start lock cleanup timer to prevent memory leaks
-   */
-  startLockCleanupTimer() {
-    if (this.lockCleanupTimer) {
-      clearInterval(this.lockCleanupTimer)
-    }
-
-    this.lockCleanupTimer = setInterval(() => {
-      this.cleanupStaleLocks()
-    }, 60 * 1000) // Every minute
-  }
-
-  /**
    * Clean up expired entries from memory cache
    */
   cleanupExpiredMemoryCache() {
@@ -964,16 +966,6 @@ class ImageURLService {
 
     if (cleanedCount > 0) {
       console.debug(`Cleaned ${cleanedCount} expired entries from memory cache`)
-    }
-  }
-
-  /**
-   * Clean up stale operation locks
-   */
-  cleanupStaleLocks() {
-    // This is a simple cleanup - in a production system you'd track lock timestamps
-    if (this.operationLocks.size > 100) {
-      console.warn(`High number of operation locks: ${this.operationLocks.size}`)
     }
   }
 
@@ -1013,7 +1005,7 @@ class ImageURLService {
         // Remove oldest URLs (first 20%)
         const urlsToRemove = Array.from(this.createdUrls).slice(0, Math.floor(this.config.maxTrackedUrls * 0.2))
         urlsToRemove.forEach(oldUrl => {
-          this.revokeUrl(oldUrl)
+          this.revokeUrlIfUnheld(oldUrl)
         })
       }
     }
@@ -1027,9 +1019,42 @@ class ImageURLService {
       try {
         URL.revokeObjectURL(url)
         this.createdUrls.delete(url)
+        this.urlRefCounts.delete(url)
       } catch (error) {
         console.warn('Failed to revoke blob URL:', error)
       }
+    }
+  }
+
+  /**
+   * Revoke a URL only if no mounted consumer holds it (used by automatic cleanup)
+   */
+  revokeUrlIfUnheld(url) {
+    if (!this.urlRefCounts.has(url)) {
+      this.revokeUrl(url)
+    }
+  }
+
+  /**
+   * Register a consumer of a blob URL
+   */
+  retainUrl(url) {
+    if (url && url.startsWith('blob:')) {
+      this.urlRefCounts.set(url, (this.urlRefCounts.get(url) || 0) + 1)
+    }
+  }
+
+  /**
+   * Release a consumer of a blob URL; revokes it when the last consumer releases
+   */
+  releaseRetainedUrl(url) {
+    const count = this.urlRefCounts.get(url)
+    if (!count) return
+    if (count > 1) {
+      this.urlRefCounts.set(url, count - 1)
+    } else {
+      this.urlRefCounts.delete(url)
+      this.revokeUrl(url)
     }
   }
 
@@ -1072,16 +1097,12 @@ class ImageURLService {
       this.cleanupTimer = null
     }
 
-    if (this.lockCleanupTimer) {
-      clearInterval(this.lockCleanupTimer)
-      this.lockCleanupTimer = null
-    }
-
     // Revoke all tracked URLs to prevent memory leaks
     this.revokeAllTrackedUrls()
 
     this.memoryCache.clear() // Blob data will be garbage collected
     this.operationLocks.clear()
+    this.urlRefCounts.clear()
   }
 
   /**
