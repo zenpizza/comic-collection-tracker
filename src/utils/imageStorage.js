@@ -260,8 +260,9 @@ class ImageStorageService {
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([this.storeName], 'readwrite')
       const store = transaction.objectStore(this.storeName)
-      const index = store.index('uploadedAt')
-      const request = index.openCursor()
+      // Records carry cachedAt, not uploadedAt, so the 'uploadedAt' index is
+      // empty — walk the store itself instead.
+      const request = store.openCursor()
 
       const cutoffTime = Date.now() - maxAge
       let deletedCount = 0
