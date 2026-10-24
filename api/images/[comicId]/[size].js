@@ -7,31 +7,12 @@
  * - If legacy base64 data: serves image from MongoDB
  */
 
-import { MongoClient, ObjectId } from 'mongodb'
+import { ObjectId } from 'mongodb'
+import { connectToDatabase } from '../../lib/mongo.js'
 import { getCoverImages } from '../../db-image-storage.js'
 import { isS3Reference, isLegacyReference } from '../../s3-serialization.js'
 import { requireAuth } from '../../auth.js'
-import { getMongoDBUri, getDatabaseName } from '../../config.js'
 import { getComic } from '../../lib/comics.js'
-
-let client
-let db
-
-async function connectToDatabase() {
-  if (db) {
-    return db
-  }
-
-  try {
-    client = new MongoClient(getMongoDBUri())
-    await client.connect()
-    db = client.db(getDatabaseName())
-    return db
-  } catch (error) {
-    console.error('MongoDB connection error:', error)
-    throw error
-  }
-}
 
 export default async function handler(req, res) {
   // Enable CORS

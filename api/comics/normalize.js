@@ -3,28 +3,8 @@
  * POST /api/comics/normalize - Fix data type inconsistencies and remove duplicates
  */
 
-import { MongoClient } from 'mongodb'
-import { getMongoDBUri, getDatabaseName } from '../config.js'
+import { connectToDatabase } from '../lib/mongo.js'
 import { requireAuth } from '../auth.js'
-
-let client
-let db
-
-async function connectToDatabase() {
-  if (db) {
-    return db
-  }
-
-  try {
-    client = new MongoClient(getMongoDBUri())
-    await client.connect()
-    db = client.db(getDatabaseName())
-    return db
-  } catch (error) {
-    console.error('MongoDB connection error:', error)
-    throw error
-  }
-}
 
 export default async function handler(req, res) {
   // Set CORS headers

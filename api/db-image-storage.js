@@ -3,34 +3,8 @@
  * This is a utility file, not a serverless endpoint
  */
 
-import { MongoClient, ObjectId } from 'mongodb'
-import { getMongoDBUri, getDatabaseName } from './config.js'
-
-let client
-let db
-
-/**
- * Connect to MongoDB database
- */
-async function connectToDatabase() {
-  if (db) {
-    return db
-  }
-
-  try {
-    const uri = getMongoDBUri()
-    const dbName = getDatabaseName()
-    
-    client = new MongoClient(uri)
-    await client.connect()
-    db = client.db(dbName)
-    
-    return db
-  } catch (error) {
-    console.error('MongoDB connection error:', error)
-    throw error
-  }
-}
+import { ObjectId } from 'mongodb'
+import { connectToDatabase } from './lib/mongo.js'
 
 /**
  * Store cover images in MongoDB

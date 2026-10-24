@@ -12,33 +12,14 @@
 
 import Busboy from 'busboy'
 import sharp from 'sharp'
-import { MongoClient, ObjectId } from 'mongodb'
+import { ObjectId } from 'mongodb'
+import { connectToDatabase } from '../lib/mongo.js'
 import { storeCoverImages } from '../db-image-storage.js'
-import { getMongoDBUri, getDatabaseName } from '../config.js'
 import { getS3Client } from '../s3-client.js'
 import { serializeS3Reference } from '../s3-serialization.js'
 import { requireAuth } from '../auth.js'
 import { getComic, attachCoverAsset } from '../lib/comics.js'
 import { createAsset, findAssetByIdentityKey } from '../lib/coverAssets.js'
-
-let client
-let db
-
-async function connectToDatabase() {
-  if (db) {
-    return db
-  }
-
-  try {
-    client = new MongoClient(getMongoDBUri())
-    await client.connect()
-    db = client.db(getDatabaseName())
-    return db
-  } catch (error) {
-    console.error('MongoDB connection error:', error)
-    throw error
-  }
-}
 
 export const config = {
   api: {
@@ -266,7 +247,6 @@ export default async function handler(req, res) {
     })
   }
 }
-
 
 /**
  * Parse JSON body from request
