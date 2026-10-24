@@ -33,14 +33,14 @@ Two new optional fields added to comics:
 ### How It Works
 
 1. **Cover Search**: When searching for covers via ComicVine, the API now returns `volumeId` and `volumeName` in the metadata
-2. **Auto-Population**: When a cover is selected (either auto-selected or manually chosen), the volume fields are automatically populated in the form
+2. **Auto-Population**: When a cover is selected (either auto-selected or manually chosen), the volume fields are automatically populated in the form. An empty Publisher field is also filled from the result's `volume.publisher.name` (COM-46); a publisher the user already typed is kept
 3. **Storage**: Volume information is saved to MongoDB along with other comic metadata
 4. **Display**: Volume info is shown as a read-only field in the Add Comic form when available
 
 ### API Changes
 
-**api/cover-search.js**
-- Added `volumeId` and `volumeName` to the metadata returned for each cover result
+**api/cover-search.js** / **api/lib/comicVineSearch.js**
+- Added `volumeId`, `volumeName` and `publisher` to the metadata returned for each cover result
 
 **src/utils/coverUpdateService.js**
 - Updated metadata template to include `volumeId` and `volumeName`
@@ -53,6 +53,13 @@ Two new optional fields added to comics:
 - Volume field displays automatically when populated from cover search
 - Read-only field with helpful hint text
 - Styled with subtle background to indicate it's auto-populated
+- Volume and publisher auto-fill from a selected cover goes through `applyCoverMetadataToForm()` in `src/utils/coverFormFill.js`
+
+**src/components/CoverSelector.jsx**
+- Passes `publisher`, `volumeId` and `volumeName` from the selected result to `onCoverSelect`. (Before COM-46 these were dropped, so manually picked covers never filled or saved volume fields.)
+
+**src/components/ComicDetailView.jsx**
+- Choosing a cover for an existing comic saves the result's publisher only if the comic has none, since changing a set publisher would change the comic's identity key
 
 ## Usage
 
@@ -60,9 +67,9 @@ Two new optional fields added to comics:
 
 When adding a comic:
 
-1. Enter series, issue number, publisher, and year as usual
+1. Enter series, issue number, publisher, and year as usual (publisher can be left blank)
 2. Search for or upload a cover
-3. If a cover is found via ComicVine, the volume field will automatically appear showing the volume name
+3. If a cover is found via ComicVine, the volume field will automatically appear showing the volume name, and a blank Publisher field is filled in from ComicVine
 4. The volume information is saved with the comic
 
 ### For Developers

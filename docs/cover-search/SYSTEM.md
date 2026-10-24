@@ -85,6 +85,7 @@ When a cover is selected:
 2. Convert Blob to File object with proper metadata
 3. Process into multiple sizes (thumbnail, medium, full)
 4. Store in MongoDB via imageStorageManager
+5. Fill form fields from the result's metadata via `applyCoverMetadataToForm()` (`src/utils/coverFormFill.js`): volume fields always, Publisher only if it's empty. In the detail view, a comic with no publisher gets the result's publisher on save.
 
 ## Integration Points
 
