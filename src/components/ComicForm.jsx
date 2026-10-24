@@ -8,6 +8,7 @@ import CoverAPISettings from './CoverAPISettings'
 import imagePipeline from '../utils/imagePipeline'
 import coverAPIService from '../utils/coverAPIService'
 import { apiFetch } from '../utils/apiClient'
+import { applyCoverMetadataToForm } from '../utils/coverFormFill'
 import './ComicForm.css'
 
 function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existingComics = [] }) {
@@ -393,14 +394,8 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
         previewUrl: URL.createObjectURL(coverBlob)
       })
 
-      // Auto-populate volume fields in form
-      if (coverResult.metadata?.volumeName) {
-        setFormData(prev => ({
-          ...prev,
-          volumeId: coverResult.metadata.volumeId || '',
-          volumeName: coverResult.metadata.volumeName || ''
-        }))
-      }
+      // Auto-populate volume and publisher fields in form
+      setFormData(prev => applyCoverMetadataToForm(prev, coverResult.metadata))
 
     } catch (error) {
       console.error('Error auto-selecting cover:', error)
@@ -439,14 +434,8 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
         previewUrl: selectedCoverData.previewUrl
       })
 
-      // Auto-populate volume fields in form
-      if (selectedCoverData.metadata?.volumeName) {
-        setFormData(prev => ({
-          ...prev,
-          volumeId: selectedCoverData.metadata.volumeId || '',
-          volumeName: selectedCoverData.metadata.volumeName || ''
-        }))
-      }
+      // Auto-populate volume and publisher fields in form
+      setFormData(prev => applyCoverMetadataToForm(prev, selectedCoverData.metadata))
 
     } catch (error) {
       console.error('Error processing selected cover:', error)
