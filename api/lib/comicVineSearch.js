@@ -31,6 +31,42 @@ const isLikelyNonEnglish = (volumeName) => {
 }
 
 /**
+ * Fetch publishers for the given volume IDs. ComicVine's /search endpoint
+ * returns `publisher: null` for volumes even when it's in field_list, so the
+ * /volumes endpoint is the only source. Failure is non-fatal: results just
+ * come back without a publisher, as they did before.
+ */
+async function fetchVolumePublishers(volumeIds, apiKey) {
+  const publishers = new Map()
+  if (volumeIds.length === 0) return publishers
+
+  try {
+    const url = new URL('https://comicvine.gamespot.com/api/volumes/')
+    url.searchParams.set('api_key', apiKey)
+    url.searchParams.set('format', 'json')
+    url.searchParams.set('filter', `id:${volumeIds.join('|')}`)
+    url.searchParams.set('field_list', 'id,publisher')
+    url.searchParams.set('limit', '100')
+
+    const response = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'Comic Collection Tracker/1.0' }
+    })
+    if (!response.ok) throw new Error(`Comic Vine API responded with ${response.status}`)
+
+    const data = await response.json()
+    if (data.error !== 'OK') throw new Error(`Comic Vine API error: ${data.error}`)
+
+    ;(data.results || []).forEach(vol => {
+      if (vol.publisher) publishers.set(vol.id, vol.publisher)
+    })
+  } catch (error) {
+    console.warn('Could not fetch volume publishers:', error.message)
+  }
+
+  return publishers
+}
+
+/**
  * Two-step ComicVine search: find candidate volumes by series name, then
  * issues within those volumes matching the issue number. Returns results
  * sorted by publisher match / English-language / year proximity, same as
@@ -108,19 +144,7 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
   const normalizedSeries = normalizeTitle(series)
   const seriesWords = normalizedSeries.split(/\s+/).filter(w => w.length > 2)
 
-  let processedResults = (data.results || [])
-    .map(result => {
-      const volumeId = result.volume?.id
-      const fullVolumeData = volumeMap.get(volumeId)
-      return {
-        ...result,
-        volume: {
-          ...result.volume,
-          publisher: fullVolumeData?.publisher || null,
-          start_year: fullVolumeData?.start_year || null
-        }
-      }
-    })
+  const matchedResults = (data.results || [])
     .filter(result => {
       if (!result.image || !result.image.original_url) return false
       if (result.issue_number?.toString() !== issueNum) return false
@@ -133,6 +157,23 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
       if (seriesWords.length === 0) return false
 
       return seriesWords.every(word => normalizedVolume.includes(word))
+    })
+
+  const matchedVolumeIds = [...new Set(matchedResults.map(r => r.volume?.id).filter(Boolean))]
+  const volumePublishers = await fetchVolumePublishers(matchedVolumeIds, apiKey)
+
+  const processedResults = matchedResults
+    .map(result => {
+      const volumeId = result.volume?.id
+      const fullVolumeData = volumeMap.get(volumeId)
+      return {
+        ...result,
+        volume: {
+          ...result.volume,
+          publisher: volumePublishers.get(volumeId) || fullVolumeData?.publisher || null,
+          start_year: fullVolumeData?.start_year || null
+        }
+      }
     })
     .sort((a, b) => {
       if (publisher) {
