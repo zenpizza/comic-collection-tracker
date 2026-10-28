@@ -394,7 +394,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
         previewUrl: URL.createObjectURL(coverBlob)
       })
 
-      // Auto-populate volume and publisher fields in form
+      // Auto-populate volume, publisher and year fields in form
       setFormData(prev => applyCoverMetadataToForm(prev, coverResult.metadata))
 
     } catch (error) {
@@ -434,7 +434,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
         previewUrl: selectedCoverData.previewUrl
       })
 
-      // Auto-populate volume and publisher fields in form
+      // Auto-populate volume, publisher and year fields in form
       setFormData(prev => applyCoverMetadataToForm(prev, selectedCoverData.metadata))
 
     } catch (error) {
