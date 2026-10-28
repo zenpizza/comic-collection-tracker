@@ -22,6 +22,7 @@
 }
 
 .comic-form .form-group input,
+.comic-form .form-group select,
 .comic-form .form-group textarea {
   width: 100%;
   min-height: 44px;
@@ -39,6 +40,7 @@
 }
 
 .comic-form .form-group input:focus,
+.comic-form .form-group select:focus,
 .comic-form .form-group textarea:focus {
   outline: none;
   border-color: var(--focus);

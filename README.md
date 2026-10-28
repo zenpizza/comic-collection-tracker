@@ -82,7 +82,7 @@ See [Deployment Architecture](docs/DEPLOYMENT_ARCHITECTURE.md) for details.
 
 ### Adding Comics
 
-**Single Comic**: Use the "Add Comic" tab to add individual comics with details like series, issue number, publisher, year, variant, and notes. When you pick a cover from ComicVine search, empty Publisher and Year fields are filled in from the result, and the ComicVine volume is recorded.
+**Single Comic**: Use the "Add Comic" tab to add individual comics with details like series, issue number, publisher, year, month, variant, and notes. When you pick a cover from ComicVine search, empty Publisher, Year and Month fields are filled in from the result (Month only if it belongs to the comic's year), and the ComicVine volume is recorded.
 
 **Bulk Import**: Use the "Bulk Import" tab for multiple comics:
 - **Text Import**: Paste a list of comics in these formats:

@@ -26,7 +26,7 @@ vi.mock('../CoverSelector', () => ({
     <button
       onClick={() => onCoverSelect({
         blob: new Blob(),
-        metadata: { publisher: 'Marvel', year: 1988, volumeId: '4045', volumeName: 'Black Panther' }
+        metadata: { publisher: 'Marvel', year: 1988, month: 7, volumeId: '4045', volumeName: 'Black Panther' }
       })}
     >
       Pick ComicVine cover
@@ -54,8 +54,8 @@ function Harness({ initialComic, onSave }) {
   )
 }
 
-describe('ComicDetailView cover auto-fill (COM-50)', () => {
-  it('keeps publisher and year filled by a cover pick when details are edited afterwards', async () => {
+describe('ComicDetailView cover auto-fill (COM-50, COM-51)', () => {
+  it('keeps publisher, year and month filled by a cover pick when details are edited afterwards', async () => {
     const onSave = vi.fn()
     render(
       <Harness
@@ -69,13 +69,14 @@ describe('ComicDetailView cover auto-fill (COM-50)', () => {
     fireEvent.click(await screen.findByText('Pick ComicVine cover'))
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
-    expect(onSave.mock.calls[0][0]).toMatchObject({ publisher: 'Marvel', year: 1988 })
+    expect(onSave.mock.calls[0][0]).toMatchObject({ publisher: 'Marvel', year: 1988, month: 7 })
+    expect(await screen.findByText('July')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Edit Details'))
     fireEvent.change(screen.getByPlaceholderText(/Add any notes/), { target: { value: 'Signed copy' } })
     fireEvent.click(screen.getByText('Save Changes'))
 
     expect(onSave).toHaveBeenCalledTimes(2)
-    expect(onSave.mock.calls[1][0]).toMatchObject({ notes: 'Signed copy', publisher: 'Marvel', year: 1988 })
+    expect(onSave.mock.calls[1][0]).toMatchObject({ notes: 'Signed copy', publisher: 'Marvel', year: 1988, month: '7' })
   })
 })

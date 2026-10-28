@@ -127,6 +127,27 @@ describe('comics + coverAssets integration', () => {
     expect(updated.coverAssetId).toBe(comic.coverAssetId)
   })
 
+  it('stores an optional month (COM-51) without it affecting the identity key', async () => {
+    const comic = await addComic(db, {
+      userId: 'user_m',
+      comic: { series: 'Black Panther', issueNumber: '1', publisher: 'Marvel', year: 1988, month: '7' },
+    })
+    expect(comic.month).toBe(7)
+
+    const updated = await updateComic(db, { userId: 'user_m', comicId: comic.id, updates: { month: '11' } })
+    expect(updated.month).toBe(11)
+    expect(updated.identityKey).toBe(comic.identityKey)
+
+    const cleared = await updateComic(db, { userId: 'user_m', comicId: comic.id, updates: { month: '' } })
+    expect(cleared.month).toBeNull()
+
+    const invalid = await addComic(db, {
+      userId: 'user_m',
+      comic: { series: 'Black Panther', issueNumber: '2', year: 1988, month: '13' },
+    })
+    expect(invalid.month).toBeNull()
+  })
+
   it('editing a canonical field to match another existing identity adopts that identity\'s shared asset', async () => {
     const targetMetadata = { series: 'Paper Girls', issueNumber: '1', publisher: 'Image', year: 2015 }
     const asset = await createAsset(db, { identityKey: buildIdentityKey(targetMetadata), images: { medium: { data: 'y' } } })

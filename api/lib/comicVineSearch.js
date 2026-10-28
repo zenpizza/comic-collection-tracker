@@ -12,6 +12,13 @@ const normalizeTitle = (title) => {
     .toLowerCase()
 }
 
+// Month (1–12) from a ComicVine date string like "1988-07-01". Parsed from the
+// string rather than via Date, which can shift it a month across timezones.
+const coverDateMonth = (coverDate) => {
+  const month = parseInt(coverDate?.split('-')[1], 10)
+  return month >= 1 && month <= 12 ? month : null
+}
+
 const isLikelyNonEnglish = (volumeName) => {
   if (!volumeName) return false
 
@@ -227,6 +234,7 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
         coverDate: result.cover_date || null,
         storeDate: result.store_date || null,
         year: result.cover_date ? new Date(result.cover_date).getFullYear() : null,
+        month: coverDateMonth(result.cover_date),
         apiId: result.id.toString(),
         originalUrl: result.site_detail_url,
         volumeId: result.volume?.id?.toString() || null,

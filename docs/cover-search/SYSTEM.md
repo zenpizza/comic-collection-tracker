@@ -85,7 +85,7 @@ When a cover is selected:
 2. Convert Blob to File object with proper metadata
 3. Process into multiple sizes (thumbnail, medium, full)
 4. Store in MongoDB via imageStorageManager
-5. Fill form fields from the result's metadata via `applyCoverMetadataToForm()` (`src/utils/coverFormFill.js`): volume fields always, Publisher and Year only if they're empty. In the detail view, a comic with no publisher or year gets the result's values on save.
+5. Fill form fields from the result's metadata via `applyCoverMetadataToForm()` (`src/utils/coverFormFill.js`): volume fields always, Publisher, Year and Month only if they're empty (Month also only when the year matches the cover's). In the detail view, a comic missing any of these gets the result's values on save. `metadata.month` is parsed from `cover_date` in `api/lib/comicVineSearch.js`.
 
 ## Integration Points
 
