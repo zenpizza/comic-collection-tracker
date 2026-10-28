@@ -7,16 +7,21 @@ import coverAPIService from '../utils/coverAPIService'
 import { getSortedUniqueSeriesNames } from '../utils/sortUtils'
 import './ComicDetailView.css'
 
-function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editForm, setEditForm] = useState({
+// Edit form values for a comic. Rebuilt whenever editing starts so fields
+// filled in by a cover selection (publisher, year) aren't shown blank and
+// then saved back over the comic.
+const editFormFromComic = (comic) => ({
     series: comic.series,
     issueNumber: comic.issueNumber,
     publisher: comic.publisher || '',
     year: comic.year || '',
     variant: comic.variant || '',
     notes: comic.notes || ''
-  })
+})
+
+function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState(() => editFormFromComic(comic))
   const [showSeriesDropdown, setShowSeriesDropdown] = useState(false)
   const [filteredSeries, setFilteredSeries] = useState([])
   const [showPublisherDropdown, setShowPublisherDropdown] = useState(false)
@@ -87,15 +92,13 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
     setIsEditing(false)
   }
 
+  const handleStartEdit = () => {
+    setEditForm(editFormFromComic(comic))
+    setIsEditing(true)
+  }
+
   const handleCancel = () => {
-    setEditForm({
-      series: comic.series,
-      issueNumber: comic.issueNumber,
-      publisher: comic.publisher || '',
-      year: comic.year || '',
-      variant: comic.variant || '',
-      notes: comic.notes || ''
-    })
+    setEditForm(editFormFromComic(comic))
     setIsEditing(false)
   }
 
@@ -552,7 +555,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                 </div>
 
                 <div className="action-buttons">
-                  <button className="btn btn-primary" onClick={() => setIsEditing(true)}>
+                  <button className="btn btn-primary" onClick={handleStartEdit}>
                     Edit Details
                   </button>
                   <button className="btn btn-danger" onClick={handleDelete}>
