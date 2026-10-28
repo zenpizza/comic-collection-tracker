@@ -10,6 +10,12 @@ export class DuplicateComicError extends Error {
   }
 }
 
+// Optional cover month, stored as 1–12 or null. Not part of the identity key.
+export function normalizeMonth(month) {
+  const n = Number(month)
+  return Number.isInteger(n) && n >= 1 && n <= 12 ? n : null
+}
+
 export async function ensureIndexes(db) {
   await db.collection('comics').createIndex({ userId: 1, identityKey: 1 }, { unique: true })
 }
@@ -38,6 +44,7 @@ function toFlatComic(doc) {
     issueNumber: doc.issueNumber,
     publisher: doc.publisher,
     year: doc.year,
+    month: doc.month ?? null,
     variant: doc.variant,
     notes: doc.notes,
     dateAdded: doc.dateAdded,
@@ -64,6 +71,7 @@ export async function addComic(db, { userId, comic }) {
     issueNumber: String(comic.issueNumber),
     publisher: comic.publisher || null,
     year: comic.year && !isNaN(comic.year) ? Number(comic.year) : comic.year || null,
+    month: normalizeMonth(comic.month),
     variant: comic.variant || null,
     notes: comic.notes || '',
     dateAdded: comic.dateAdded || now,
@@ -111,6 +119,7 @@ export async function updateComic(db, { userId, comicId, updates }) {
 
   if (updates.notes !== undefined) set.notes = updates.notes
   if (updates.dateAdded !== undefined) set.dateAdded = updates.dateAdded
+  if (updates.month !== undefined) set.month = normalizeMonth(updates.month)
 
   const hasCanonicalEdit = CANONICAL_FIELDS.some((field) => field in updates)
   if (hasCanonicalEdit) {

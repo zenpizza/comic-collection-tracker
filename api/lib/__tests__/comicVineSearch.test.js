@@ -48,6 +48,14 @@ describe('searchComicVineIssues publisher (COM-49)', () => {
     expect(decodeURIComponent(volumesUrl)).toContain('filter=id:119953|4045')
   })
 
+  it('parses the cover month from the date string (COM-51)', async () => {
+    vi.stubGlobal('fetch', mockFetch(() => volumes))
+
+    const results = await searchComicVineIssues({ series: 'Black Panther', issue: '1', publisher: 'Marvel', apiKey: 'k' })
+
+    expect(results[0].metadata).toMatchObject({ year: 1988, month: 7 })
+  })
+
   it('ranks results matching the publisher hint first', async () => {
     vi.stubGlobal('fetch', mockFetch(() => volumes))
 

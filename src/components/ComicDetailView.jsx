@@ -5,16 +5,18 @@ import CoverSelector from './CoverSelector'
 import ImageURLService from '../utils/ImageURLService'
 import coverAPIService from '../utils/coverAPIService'
 import { getSortedUniqueSeriesNames } from '../utils/sortUtils'
+import { MONTH_NAMES, monthName } from '../utils/months'
 import './ComicDetailView.css'
 
 // Edit form values for a comic. Rebuilt whenever editing starts so fields
-// filled in by a cover selection (publisher, year) aren't shown blank and
+// filled in by a cover selection (publisher, year, month) aren't shown blank and
 // then saved back over the comic.
 const editFormFromComic = (comic) => ({
   series: comic.series,
   issueNumber: comic.issueNumber,
   publisher: comic.publisher || '',
   year: comic.year || '',
+  month: comic.month ? String(comic.month) : '',
   variant: comic.variant || '',
   notes: comic.notes || ''
 })
@@ -177,7 +179,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
         ...result.metadata
       }
 
-      // Fill a missing publisher or year from the selected ComicVine result.
+      // Fill a missing publisher, year or month from the selected ComicVine result.
       // Existing values are left alone — changing them could change the
       // comic's identity key.
       if (!comic.publisher?.trim() && metadata.publisher) {
@@ -185,6 +187,10 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
       }
       if (!comic.year && metadata.year) {
         updatedComic.year = metadata.year
+      }
+      // Only take the month if it belongs to the comic's year
+      if (!comic.month && metadata.month && String(updatedComic.year) === String(metadata.year)) {
+        updatedComic.month = metadata.month
       }
       
       console.log('Saving updated comic metadata:', updatedComic)
@@ -458,6 +464,20 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                   />
                 </div>
 
+                <div className="form-group">
+                  <label>Month</label>
+                  <select
+                    value={editForm.month}
+                    onChange={(e) => handleChange('month', e.target.value)}
+                    className="form-input"
+                  >
+                    <option value="">—</option>
+                    {MONTH_NAMES.map((name, i) => (
+                      <option key={name} value={String(i + 1)}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {comic.volumeName && (
                   <div className="form-group volume-info-edit">
                     <label>Volume (from ComicVine)</label>
@@ -524,6 +544,13 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                     <div className="detail-item">
                       <span className="detail-label">Year:</span>
                       <span className="detail-value">{comic.year}</span>
+                    </div>
+                  )}
+
+                  {monthName(comic.month) && (
+                    <div className="detail-item">
+                      <span className="detail-label">Month:</span>
+                      <span className="detail-value">{monthName(comic.month)}</span>
                     </div>
                   )}
 

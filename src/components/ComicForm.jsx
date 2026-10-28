@@ -9,6 +9,7 @@ import imagePipeline from '../utils/imagePipeline'
 import coverAPIService from '../utils/coverAPIService'
 import { apiFetch } from '../utils/apiClient'
 import { applyCoverMetadataToForm } from '../utils/coverFormFill'
+import { MONTH_NAMES } from '../utils/months'
 import './ComicForm.css'
 
 function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existingComics = [] }) {
@@ -17,6 +18,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
     issueNumber: '',
     publisher: '',
     year: '',
+    month: '',
     variant: '',
     notes: '',
     volumeId: '',
@@ -110,6 +112,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
         issueNumber: '',
         publisher: '',
         year: '',
+        month: '',
         variant: '',
         notes: '',
         volumeId: '',
@@ -394,7 +397,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
         previewUrl: URL.createObjectURL(coverBlob)
       })
 
-      // Auto-populate volume, publisher and year fields in form
+      // Auto-populate volume, publisher, year and month fields in form
       setFormData(prev => applyCoverMetadataToForm(prev, coverResult.metadata))
 
     } catch (error) {
@@ -434,7 +437,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
         previewUrl: selectedCoverData.previewUrl
       })
 
-      // Auto-populate volume, publisher and year fields in form
+      // Auto-populate volume, publisher, year and month fields in form
       setFormData(prev => applyCoverMetadataToForm(prev, selectedCoverData.metadata))
 
     } catch (error) {
@@ -555,6 +558,16 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
             min="1900"
             max="2030"
           />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="month">Month</label>
+          <select id="month" name="month" value={formData.month} onChange={handleChange}>
+            <option value="">—</option>
+            {MONTH_NAMES.map((name, i) => (
+              <option key={name} value={String(i + 1)}>{name}</option>
+            ))}
+          </select>
         </div>
 
         {formData.volumeName && (

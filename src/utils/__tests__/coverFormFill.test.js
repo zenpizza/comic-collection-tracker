@@ -6,6 +6,7 @@ const emptyForm = {
   issueNumber: '1',
   publisher: '',
   year: '',
+  month: '',
   volumeId: '',
   volumeName: ''
 }
@@ -34,6 +35,26 @@ describe('applyCoverMetadataToForm (COM-46)', () => {
   it('keeps a year the user already entered (COM-50)', () => {
     const next = applyCoverMetadataToForm({ ...emptyForm, year: '2013' }, { year: 2012 })
     expect(next.year).toBe('2013')
+  })
+
+  it('fills an empty month alongside the year (COM-51)', () => {
+    const next = applyCoverMetadataToForm(emptyForm, { year: 1988, month: 7 })
+    expect(next).toMatchObject({ year: '1988', month: '7' })
+  })
+
+  it('fills the month when the entered year matches the cover (COM-51)', () => {
+    const next = applyCoverMetadataToForm({ ...emptyForm, year: '1988' }, { year: 1988, month: 7 })
+    expect(next.month).toBe('7')
+  })
+
+  it('skips the month when the entered year differs from the cover (COM-51)', () => {
+    const next = applyCoverMetadataToForm({ ...emptyForm, year: '1990' }, { year: 1988, month: 7 })
+    expect(next.month).toBe('')
+  })
+
+  it('keeps a month the user already chose (COM-51)', () => {
+    const next = applyCoverMetadataToForm({ ...emptyForm, month: '3' }, { year: 1988, month: 7 })
+    expect(next.month).toBe('3')
   })
 
   it('fills volume fields from the cover metadata', () => {
