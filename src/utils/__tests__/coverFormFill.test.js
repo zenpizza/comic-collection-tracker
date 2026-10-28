@@ -5,6 +5,7 @@ const emptyForm = {
   series: 'Saga',
   issueNumber: '1',
   publisher: '',
+  year: '',
   volumeId: '',
   volumeName: ''
 }
@@ -23,6 +24,16 @@ describe('applyCoverMetadataToForm (COM-46)', () => {
   it('keeps a publisher the user already entered', () => {
     const next = applyCoverMetadataToForm({ ...emptyForm, publisher: 'Image Comics' }, { publisher: 'Image' })
     expect(next.publisher).toBe('Image Comics')
+  })
+
+  it('fills an empty year from the cover metadata as a string (COM-50)', () => {
+    const next = applyCoverMetadataToForm(emptyForm, { year: 2012 })
+    expect(next.year).toBe('2012')
+  })
+
+  it('keeps a year the user already entered (COM-50)', () => {
+    const next = applyCoverMetadataToForm({ ...emptyForm, year: '2013' }, { year: 2012 })
+    expect(next.year).toBe('2013')
   })
 
   it('fills volume fields from the cover metadata', () => {

@@ -174,11 +174,14 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
         ...result.metadata
       }
 
-      // Fill a missing publisher from the selected ComicVine result. An
-      // existing publisher is left alone — changing it would change the
+      // Fill a missing publisher or year from the selected ComicVine result.
+      // Existing values are left alone — changing them could change the
       // comic's identity key.
       if (!comic.publisher?.trim() && metadata.publisher) {
         updatedComic.publisher = metadata.publisher
+      }
+      if (!comic.year && metadata.year) {
+        updatedComic.year = metadata.year
       }
       
       console.log('Saving updated comic metadata:', updatedComic)
