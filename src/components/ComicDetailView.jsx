@@ -11,12 +11,12 @@ import './ComicDetailView.css'
 // filled in by a cover selection (publisher, year) aren't shown blank and
 // then saved back over the comic.
 const editFormFromComic = (comic) => ({
-    series: comic.series,
-    issueNumber: comic.issueNumber,
-    publisher: comic.publisher || '',
-    year: comic.year || '',
-    variant: comic.variant || '',
-    notes: comic.notes || ''
+  series: comic.series,
+  issueNumber: comic.issueNumber,
+  publisher: comic.publisher || '',
+  year: comic.year || '',
+  variant: comic.variant || '',
+  notes: comic.notes || ''
 })
 
 function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
