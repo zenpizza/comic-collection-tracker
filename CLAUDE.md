@@ -14,8 +14,18 @@
 - Feature: `feat: <description> (COM-X)`
 - Include a `Closes COM-X` line in the body for each issue.
 
+## Before opening a PR
+
+Unit tests on the changed function aren't enough; check the whole flow the user goes through.
+
+- **Find every reader of changed fields.** When a change alters what gets saved on a comic (publisher, year, volume, cover fields, …), grep for every other place that reads or keeps a copy of those fields: `editForm`/form state initialised from props, other forms, caches, the API's `CANONICAL_FIELDS`. A copy taken at mount (`useState(comic.x)`) goes stale when the comic changes underneath it.
+- **Check external data live.** Any assumption about what ComicVine (or another external API) returns gets confirmed with one real request, not only a mocked test. Keys are in `.env.local`; never print them.
+- **Test UI flows with a component test.** Component tests live in `src/components/__tests__/*.test.jsx` with `// @vitest-environment jsdom` at the top, using `@testing-library/react`. See `ComicDetailView.test.jsx` for the pattern (mock image/cover services, drive the UI, assert what `onSave` receives).
+- In the PR's Testing section, say which user flow was checked and how.
+
 ## Merge strategy
 
+- **Before proposing or doing a merge, read the PR's review comments** (`gh pr view <n> --comments` and `gh api repos/zenpizza/comic-collection-tracker/pulls/<n>/comments`). Codex reviews every PR a minute or two after it opens; wait for its review and address or answer each finding first.
 - Squash merge: `gh pr merge --squash`
 - Use `-D` (not `-d`) to delete local branches after squash merge — git sees squash commits as unmerged.
 
