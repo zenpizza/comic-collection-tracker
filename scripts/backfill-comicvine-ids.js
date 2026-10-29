@@ -157,7 +157,7 @@ function report(flags, statePath) {
 
   console.log(`State: ${statePath}`)
   console.log(`${lookups.length} comics looked up with ${state.requests} ComicVine requests\n`)
-  for (const status of ['matched', 'needs-review', 'no-match', 'error']) {
+  for (const status of ['matched', 'needs-review', 'no-match', 'stale', 'error']) {
     console.log(`${status.padEnd(13)} ${by(status).length}`)
   }
   console.log(`applied       ${lookups.filter((l) => l.appliedAt).length}`)
@@ -172,6 +172,7 @@ function report(flags, statePath) {
   list('Needs review', by('needs-review'), (l) =>
     `- ${l.series} #${l.issueNumber} [${l.comicId}]: ${l.reason}\n    ${l.candidates.map(candidate).join('\n    ')}`)
   list('No match', by('no-match'), (l) => `- ${l.series} #${l.issueNumber} [${l.comicId}]`)
+  list('Stale (edited after lookup; re-queried on next lookup)', by('stale'), (l) => `- ${l.series} #${l.issueNumber} [${l.comicId}]`)
   list('Errors (retried on next lookup)', by('error'), (l) => `- ${l.series} #${l.issueNumber}: ${l.reason}`)
   if (flags.matched) {
     list('Matched', by('matched'), (l) => `- ${l.series} #${l.issueNumber} → ${candidate(l.match)}`)
@@ -191,14 +192,16 @@ async function apply(flags, statePath) {
     const result = await applyLookups(db, { state, confirm, fillMissing, onProgress: (s) => saveState(statePath, s) })
     for (const change of result.changes) {
       const label = `${change.series} #${change.issueNumber}`
-      if (change.conflictWith) {
+      if (change.stale) {
+        console.log(`- STALE ${label}: edited since lookup — skipped; re-run lookup to refresh it`)
+      } else if (change.conflictWith) {
         console.log(`- CONFLICT ${label}: account already owns ${change.conflictWith} with that identity — skipped`)
       } else {
         const fields = Object.entries(change.set).filter(([k]) => k !== 'identityKey').map(([k, v]) => `${k}=${v}`).join(', ')
         console.log(`- ${label}: ${fields}`)
       }
     }
-    console.log(`\n${confirm ? `Updated ${result.updated}` : `Would update ${result.wouldUpdate}`}, conflicts ${result.conflict}, skipped ${result.skipped}.`)
+    console.log(`\n${confirm ? `Updated ${result.updated}` : `Would update ${result.wouldUpdate}`}, conflicts ${result.conflict}, stale ${result.stale}, skipped ${result.skipped}.`)
     if (confirm) saveState(statePath, state)
   })
 }

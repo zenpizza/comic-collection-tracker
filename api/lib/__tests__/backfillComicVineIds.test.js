@@ -225,6 +225,40 @@ describe('lookupComics + applyLookups (COM-48)', () => {
     expect(again.updated).toBe(0)
   })
 
+  it('skips a comic edited after its lookup and re-queries it on the next lookup', async () => {
+    const state = createState()
+    const fetchImpl = vi.fn(async (url) => fakeComicVine(url))
+    await lookupComics(db, { state, apiKey: 'k', fetchImpl, ...noWait })
+    expect(state.lookups[ids[SAGA_1]].match.comicVineId).toBe('1001')
+
+    // Saga #1 is edited to #2 between lookup and apply
+    await db.collection('comics').updateOne({ _id: new ObjectId(ids[SAGA_1]) }, { $set: { issueNumber: '2' } })
+
+    const dry = await applyLookups(db, { state })
+    expect(dry).toMatchObject({ stale: 1, wouldUpdate: 2 })
+    expect(state.lookups[ids[SAGA_1]].status).toBe('matched') // dry run changes nothing
+
+    const applied = await applyLookups(db, { state, confirm: true })
+    expect(applied).toMatchObject({ stale: 1, updated: 2 })
+    expect((await db.collection('comics').findOne({ _id: new ObjectId(ids[SAGA_1]) })).comicVineId).toBeNull()
+    expect(state.lookups[ids[SAGA_1]].status).toBe('stale')
+
+    fetchImpl.mockClear()
+    const rerun = await lookupComics(db, { state, apiKey: 'k', fetchImpl, ...noWait })
+    expect(rerun.processed).toBe(1)
+    expect(state.lookups[ids[SAGA_1]]).toMatchObject({ status: 'matched', match: { comicVineId: '1002' } })
+  })
+
+  it('re-queries a comic edited before the next lookup even if it was matched', async () => {
+    const state = createState()
+    await lookupComics(db, { state, apiKey: 'k', fetchImpl: async (url) => fakeComicVine(url), ...noWait })
+    await db.collection('comics').updateOne({ _id: new ObjectId(ids[BP_NO_YEAR]) }, { $set: { year: 1988 } })
+
+    const rerun = await lookupComics(db, { state, apiKey: 'k', fetchImpl: async (url) => fakeComicVine(url), ...noWait })
+    expect(rerun.processed).toBe(1)
+    expect(state.lookups[ids[BP_NO_YEAR]]).toMatchObject({ status: 'matched', match: { comicVineId: '2001' } })
+  })
+
   it('without fillMissing only sets the ComicVine identity', async () => {
     const state = createState()
     await lookupComics(db, { state, apiKey: 'k', fetchImpl: async (url) => fakeComicVine(url), ...noWait })

@@ -145,6 +145,22 @@ const summarize = (result) => ({
   month: result.metadata.month ?? null,
 })
 
+// The comic fields a lookup's result depends on. Saved with each lookup so a
+// comic edited afterwards (the phases can be hours apart) is re-queried
+// instead of receiving a match for its old values.
+const LOOKUP_INPUTS = ['series', 'issueNumber', 'publisher', 'year', 'volumeId']
+
+const lookupInputs = (comic) =>
+  Object.fromEntries(LOOKUP_INPUTS.map((field) => [field, String(comic[field] ?? '').trim()]))
+
+const inputsChanged = (lookup, comic) => {
+  const current = lookupInputs(comic)
+  return !lookup.inputs || LOOKUP_INPUTS.some((field) => lookup.inputs[field] !== current[field])
+}
+
+// Statuses lookupComics retries on its next run
+const RETRY_STATUSES = new Set(['error', 'stale'])
+
 export function createState() {
   return { version: 1, createdAt: new Date().toISOString(), requests: 0, lookups: {}, cache: {} }
 }
@@ -178,7 +194,7 @@ export async function lookupComics(db, {
   for (const comic of comics) {
     const id = comic._id.toString()
     const previous = state.lookups[id]
-    if (previous && previous.status !== 'error') continue
+    if (previous && !RETRY_STATUSES.has(previous.status) && !inputsChanged(previous, comic)) continue
 
     if (pacedFetch.requestCount() + MAX_REQUESTS_PER_LOOKUP > maxRequests) {
       stoppedBecause = 'request budget reached'
@@ -190,6 +206,7 @@ export async function lookupComics(db, {
       userId: comic.userId,
       series: comic.series,
       issueNumber: comic.issueNumber,
+      inputs: lookupInputs(comic),
       lookedUpAt: new Date().toISOString(),
     }
 
@@ -238,7 +255,7 @@ const isEmpty = (value) => value === null || value === undefined || String(value
  */
 export async function applyLookups(db, { state, confirm = false, fillMissing = false, onProgress = () => {} }) {
   const comicsCollection = db.collection('comics')
-  const outcomes = { updated: 0, wouldUpdate: 0, conflict: 0, skipped: 0 }
+  const outcomes = { updated: 0, wouldUpdate: 0, conflict: 0, stale: 0, skipped: 0 }
   const changes = []
 
   for (const lookup of Object.values(state.lookups)) {
@@ -247,6 +264,16 @@ export async function applyLookups(db, { state, confirm = false, fillMissing = f
     const comic = await comicsCollection.findOne({ _id: new ObjectId(lookup.comicId) })
     if (!comic || comic.comicVineId) {
       outcomes.skipped++
+      continue
+    }
+    if (inputsChanged(lookup, comic)) {
+      // Edited since the lookup — the match may be for its old values
+      if (confirm) {
+        Object.assign(lookup, { status: 'stale', reason: 'comic changed since lookup' })
+        onProgress(state)
+      }
+      outcomes.stale++
+      changes.push({ comicId: lookup.comicId, series: comic.series, issueNumber: comic.issueNumber, stale: true })
       continue
     }
 
