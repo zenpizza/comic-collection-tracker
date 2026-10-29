@@ -43,7 +43,7 @@ const isLikelyNonEnglish = (volumeName) => {
  * /volumes endpoint is the only source. Failure is non-fatal: results just
  * come back without a publisher, as they did before.
  */
-async function fetchVolumePublishers(volumeIds, apiKey) {
+async function fetchVolumePublishers(volumeIds, apiKey, fetchImpl) {
   const publishers = new Map()
   if (volumeIds.length === 0) return publishers
 
@@ -55,7 +55,7 @@ async function fetchVolumePublishers(volumeIds, apiKey) {
     url.searchParams.set('field_list', 'id,publisher')
     url.searchParams.set('limit', '100')
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchImpl(url.toString(), {
       headers: { 'User-Agent': 'Comic Collection Tracker/1.0' }
     })
     if (!response.ok) throw new Error(`Comic Vine API responded with ${response.status}`)
@@ -67,6 +67,8 @@ async function fetchVolumePublishers(volumeIds, apiKey) {
       if (vol.publisher) publishers.set(vol.id, vol.publisher)
     })
   } catch (error) {
+    // A rate-limit stop (see paced fetch in backfillComicVineIds) must reach the caller
+    if (error.rateLimited) throw error
     console.warn('Could not fetch volume publishers:', error.message)
   }
 
@@ -78,8 +80,12 @@ async function fetchVolumePublishers(volumeIds, apiKey) {
  * issues within those volumes matching the issue number. Returns results
  * sorted by publisher match / English-language / year proximity, same as
  * /api/cover-search.
+ *
+ * `fetchImpl` lets the backfill pass a paced, caching fetch. Request URLs
+ * depend only on the series and issue number, so responses for a series can
+ * be reused across its issues.
  */
-export async function searchComicVineIssues({ series, issue, publisher, year, apiKey }) {
+export async function searchComicVineIssues({ series, issue, publisher, year, apiKey, fetchImpl = fetch }) {
   const volumeSearchUrl = new URL('https://comicvine.gamespot.com/api/search/')
   volumeSearchUrl.searchParams.set('api_key', apiKey)
   volumeSearchUrl.searchParams.set('format', 'json')
@@ -88,7 +94,7 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
   volumeSearchUrl.searchParams.set('field_list', 'id,name,start_year,publisher')
   volumeSearchUrl.searchParams.set('limit', '10')
 
-  const volumeResponse = await fetch(volumeSearchUrl.toString(), {
+  const volumeResponse = await fetchImpl(volumeSearchUrl.toString(), {
     headers: { 'User-Agent': 'Comic Collection Tracker/1.0' }
   })
 
@@ -133,7 +139,7 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
   issuesUrl.searchParams.set('limit', '20')
   issuesUrl.searchParams.set('sort', year ? 'cover_date:asc' : 'cover_date:desc')
 
-  const issuesResponse = await fetch(issuesUrl.toString(), {
+  const issuesResponse = await fetchImpl(issuesUrl.toString(), {
     headers: { 'User-Agent': 'Comic Collection Tracker/1.0' }
   })
 
@@ -166,8 +172,11 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
       return seriesWords.every(word => normalizedVolume.includes(word))
     })
 
-  const matchedVolumeIds = [...new Set(matchedResults.map(r => r.volume?.id).filter(Boolean))]
-  const volumePublishers = await fetchVolumePublishers(matchedVolumeIds, apiKey)
+  // Ask for every candidate volume, not just the matched ones, so the request
+  // is the same for every issue of a series (and cacheable by the backfill).
+  const volumePublishers = matchedResults.length > 0
+    ? await fetchVolumePublishers(volumeData.results.map(v => v.id), apiKey, fetchImpl)
+    : new Map()
 
   const processedResults = matchedResults
     .map(result => {
