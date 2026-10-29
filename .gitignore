@@ -44,3 +44,6 @@ docker-compose.override.yml
 # Playwright saved auth state and debug artifacts
 .playwright-auth.json
 .playwright-debug.png
+
+# Backfill state (contains collection data)
+.backfill/

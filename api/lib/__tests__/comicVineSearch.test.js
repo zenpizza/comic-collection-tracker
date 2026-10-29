@@ -45,7 +45,7 @@ describe('searchComicVineIssues publisher (COM-49)', () => {
 
     expect(results.map(r => r.metadata.publisher).sort()).toEqual(['Marvel', 'Panini Verlag'])
     const volumesUrl = fetch.mock.calls.map(([u]) => u).find(u => u.includes('/api/volumes/'))
-    expect(decodeURIComponent(volumesUrl)).toContain('filter=id:119953|4045')
+    expect(decodeURIComponent(volumesUrl)).toContain('filter=id:4045|119953')
   })
 
   it('parses the cover month from the date string (COM-51)', async () => {
