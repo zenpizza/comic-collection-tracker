@@ -12,8 +12,14 @@ const normalizeTitle = (title) => {
     .toLowerCase()
 }
 
-// Month (1–12) from a ComicVine date string like "1988-07-01". Parsed from the
-// string rather than via Date, which can shift it a month across timezones.
+// Year and month from a ComicVine date string like "1988-07-01". Parsed from
+// the string rather than via Date: new Date('1987-01-01') is UTC midnight, so
+// west of UTC getFullYear() gives 1986 (and the month can shift too).
+const coverDateYear = (coverDate) => {
+  const year = parseInt(coverDate?.split('-')[0], 10)
+  return Number.isInteger(year) ? year : null
+}
+
 const coverDateMonth = (coverDate) => {
   const month = parseInt(coverDate?.split('-')[1], 10)
   return month >= 1 && month <= 12 ? month : null
@@ -84,8 +90,16 @@ async function fetchVolumePublishers(volumeIds, apiKey, fetchImpl) {
  * `fetchImpl` lets the backfill pass a paced, caching fetch. Request URLs
  * depend only on the series and issue number, so responses for a series can
  * be reused across its issues.
+ *
+ * `volumeIds` skips the name search and looks only in those volumes, for
+ * series whose volume ComicVine's search doesn't surface.
  */
-export async function searchComicVineIssues({ series, issue, publisher, year, apiKey, fetchImpl = fetch }) {
+export async function searchComicVineIssues({ series, issue, publisher, year, apiKey, fetchImpl = fetch, volumeIds: knownVolumeIds }) {
+  if (knownVolumeIds?.length) {
+    const volumes = knownVolumeIds.map(id => ({ id: Number(id) }))
+    return searchIssuesInVolumes({ volumes, matchName: false, series, issue, publisher, year, apiKey, fetchImpl })
+  }
+
   const volumeSearchUrl = new URL('https://comicvine.gamespot.com/api/search/')
   volumeSearchUrl.searchParams.set('api_key', apiKey)
   volumeSearchUrl.searchParams.set('format', 'json')
@@ -112,13 +126,22 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
     return []
   }
 
-  const volumeMap = new Map()
-  volumeData.results.forEach(vol => volumeMap.set(vol.id, vol))
+  return searchIssuesInVolumes({ volumes: volumeData.results, matchName: true, series, issue, publisher, year, apiKey, fetchImpl })
+}
 
-  let filteredVolumes = volumeData.results
+/**
+ * Issues numbered `issue` within `volumes`, ranked. With `matchName`, results
+ * whose volume name doesn't resemble `series` are dropped (the name search is
+ * fuzzy); known volumes skip that check.
+ */
+async function searchIssuesInVolumes({ volumes, matchName, series, issue, publisher, year, apiKey, fetchImpl }) {
+  const volumeMap = new Map()
+  volumes.forEach(vol => volumeMap.set(vol.id, vol))
+
+  let filteredVolumes = volumes
   if (year) {
     const targetYear = parseInt(year)
-    filteredVolumes = [...volumeData.results].sort((a, b) => {
+    filteredVolumes = [...volumes].sort((a, b) => {
       const aYear = a.start_year || 0
       const bYear = b.start_year || 0
       const aDiff = Math.abs(aYear - targetYear)
@@ -161,6 +184,7 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
     .filter(result => {
       if (!result.image || !result.image.original_url) return false
       if (result.issue_number?.toString() !== issueNum) return false
+      if (!matchName) return true
 
       const volumeName = result.volume?.name?.toLowerCase().trim() || ''
       const normalizedVolume = normalizeTitle(volumeName)
@@ -175,7 +199,7 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
   // Ask for every candidate volume, not just the matched ones, so the request
   // is the same for every issue of a series (and cacheable by the backfill).
   const volumePublishers = matchedResults.length > 0
-    ? await fetchVolumePublishers(volumeData.results.map(v => v.id), apiKey, fetchImpl)
+    ? await fetchVolumePublishers(volumes.map(v => v.id), apiKey, fetchImpl)
     : new Map()
 
   const processedResults = matchedResults
@@ -214,8 +238,8 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
 
       if (year) {
         const targetYear = parseInt(year)
-        const aYear = a.cover_date ? new Date(a.cover_date).getFullYear() : 0
-        const bYear = b.cover_date ? new Date(b.cover_date).getFullYear() : 0
+        const aYear = coverDateYear(a.cover_date) || 0
+        const bYear = coverDateYear(b.cover_date) || 0
         return Math.abs(aYear - targetYear) - Math.abs(bYear - targetYear)
       }
 
@@ -242,7 +266,7 @@ export async function searchComicVineIssues({ series, issue, publisher, year, ap
         description: result.description || '',
         coverDate: result.cover_date || null,
         storeDate: result.store_date || null,
-        year: result.cover_date ? new Date(result.cover_date).getFullYear() : null,
+        year: coverDateYear(result.cover_date),
         month: coverDateMonth(result.cover_date),
         apiId: result.id.toString(),
         originalUrl: result.site_detail_url,

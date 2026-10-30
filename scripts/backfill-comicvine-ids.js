@@ -3,7 +3,7 @@
  * Logic lives in api/lib/backfillComicVineIds.js; this is the CLI around it.
  *
  *   node scripts/backfill-comicvine-ids.js count  --env <file>
- *   node scripts/backfill-comicvine-ids.js lookup --env <file> [--interval-sec 36] [--max-requests N]
+ *   node scripts/backfill-comicvine-ids.js lookup --env <file> [--interval-sec 36] [--max-requests N] [--redo]
  *   node scripts/backfill-comicvine-ids.js report
  *   node scripts/backfill-comicvine-ids.js apply  --env <file> [--fill-missing] [--confirm]
  *
@@ -12,6 +12,15 @@
  *         i.e. ≤100/hour, half ComicVine's per-resource cap, leaving the rest
  *         for live cover search on the same key). Saves progress after every
  *         comic; stops at the first rate-limit response. Re-run to resume.
+ *         --redo repeats every lookup not yet applied (cheap: responses are
+ *         cached in the state file, so only new URLs cost requests).
+ *         Series → volume overrides are read from --volumes (default
+ *         .backfill/volume-overrides.json), e.g.
+ *           { "The Spectacular Spider-Man": 2870 }
+ *         for series the name search can't find or can't tell apart.
+ *         Names ignore case and a leading "The". Annuals and specials are
+ *         looked up as their own series, so they need their own entry
+ *         ("Spectacular Spider-Man Annual") and never use the regular one.
  * report  Summarizes the state file. No database or ComicVine access.
  * apply   Writes matched lookups to the database — dry run unless --confirm.
  *         --fill-missing also fills empty publisher/year/month/volume.
@@ -47,6 +56,15 @@ function parseArgs(argv) {
 
 function loadState(path) {
   return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : createState()
+}
+
+function loadVolumeOverrides(flags) {
+  const path = resolve(typeof flags.volumes === 'string' ? flags.volumes : '.backfill/volume-overrides.json')
+  if (!existsSync(path)) {
+    if (typeof flags.volumes === 'string') throw new Error(`${path} not found`)
+    return {}
+  }
+  return JSON.parse(readFileSync(path, 'utf8'))
 }
 
 function saveState(path, state) {
@@ -118,24 +136,25 @@ async function lookup(flags, statePath) {
     const maxRequests = flags['max-requests'] ? Number(flags['max-requests']) : Infinity
     const state = loadState(statePath)
     const before = Object.keys(state.lookups).length
+    const volumeOverrides = loadVolumeOverrides(flags)
+    const redo = flags.redo === true
 
     console.log(`State: ${statePath} (${before} comics already looked up, ${state.requests} requests so far)`)
     console.log(`Pacing: one request per ${intervalSec}s${maxRequests < Infinity ? `, at most ${maxRequests} this run` : ''}`)
+    if (Object.keys(volumeOverrides).length) console.log(`Volume overrides: ${Object.keys(volumeOverrides).length} series`)
+    if (redo) console.log('Redoing every lookup not yet applied (cached responses cost no requests).')
     console.log('Progress is saved after every comic; Ctrl-C is safe, re-run to resume.\n')
 
     const started = Date.now()
-    let logged = before
     const run = await lookupComics(db, {
       state,
       apiKey: apiKey(),
       intervalMs: intervalSec * 1000,
       maxRequests,
-      onProgress: (s) => {
+      volumeOverrides,
+      redo,
+      onProgress: (s, last) => {
         saveState(statePath, s)
-        const done = Object.keys(s.lookups).length
-        if (done === logged) return // final save after the loop, nothing new
-        logged = done
-        const last = Object.values(s.lookups).at(-1)
         if (last) console.log(`[${new Date().toISOString()}] ${last.series} #${last.issueNumber}: ${last.status}${last.reason ? ` (${last.reason})` : ''}`)
       },
     })
