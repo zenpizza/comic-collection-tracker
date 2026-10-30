@@ -262,9 +262,11 @@ export async function lookupComics(db, {
         fetchImpl: pacedFetch,
         volumeIds: override,
       })
-      // One override volume is an exact match; with several (ComicVine splits
-      // some runs across volumes) the usual rules pick among their results.
-      const exactVolume = override?.length === 1 && !comic.volumeId ? override[0] : null
+      // One override volume is an exact match — when the comic has no saved
+      // volume, or its saved volume agrees. With several (ComicVine splits some
+      // runs across volumes) the usual rules pick among their results.
+      const savedVolume = comic.volumeId ? String(comic.volumeId) : null
+      const exactVolume = override?.length === 1 && (!savedVolume || savedVolume === override[0]) ? override[0] : null
       const { status, reason, match } = exactVolume
         ? chooseMatch({ ...comic, volumeId: exactVolume }, results, { volumeChosenByUser: true })
         : chooseMatch(comic, results)
