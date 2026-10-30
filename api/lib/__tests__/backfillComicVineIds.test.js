@@ -350,6 +350,26 @@ describe('lookup fixes from the first production run (COM-48)', () => {
     expect(only(state)).toMatchObject({ status: 'matched', volumeOverride: '2870', match: { volumeId: '2870' } })
   })
 
+  it('does not apply a regular series override to that series\' annuals', async () => {
+    await seed([{ series: 'The Spectacular Spider-Man', issueNumber: 'Annual 1', year: 1979 }])
+    const state = createState()
+    const { urls } = await lookupAll(state, { volumeOverrides: { 'the spectacular spider-man': '2870' } })
+
+    expect(only(state).volumeOverride).toBeUndefined()
+    expect(urls[0]).toContain('query=Spectacular+Spider-Man+Annual')
+    expect(only(state).status).toBe('no-match') // not regular #1 from volume 2870
+  })
+
+  it('applies an annual override keyed by the annual series name', async () => {
+    await seed([{ series: 'The Spectacular Spider-Man', issueNumber: 'Annual 1', year: 1979 }])
+    const state = createState()
+    const { urls } = await lookupAll(state, { volumeOverrides: { 'spectacular spider-man annual': '3012' } })
+
+    expect(only(state).volumeOverride).toBe('3012')
+    expect(urls.some((u) => u.includes('/api/search/'))).toBe(false)
+    expect(urls.some((u) => u.includes('volume:3012,issue_number:1'))).toBe(true)
+  })
+
   it('redo repeats lookups not yet applied, served from cache', async () => {
     await seed([{ series: 'The Transformers', issueNumber: '10', year: 1985 }])
     const state = createState()

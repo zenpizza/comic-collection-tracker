@@ -18,6 +18,9 @@
  *         .backfill/volume-overrides.json), e.g.
  *           { "The Spectacular Spider-Man": 2870 }
  *         for series the name search can't find or can't tell apart.
+ *         Names ignore case and a leading "The". Annuals and specials are
+ *         looked up as their own series, so they need their own entry
+ *         ("Spectacular Spider-Man Annual") and never use the regular one.
  * report  Summarizes the state file. No database or ComicVine access.
  * apply   Writes matched lookups to the database — dry run unless --confirm.
  *         --fill-missing also fills empty publisher/year/month/volume.
@@ -32,7 +35,7 @@ import dotenv from 'dotenv'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { dirname, resolve } from 'path'
 import { MongoClient } from 'mongodb'
-import { createState, lookupComics, applyLookups, normalizeSeriesKey } from '../api/lib/backfillComicVineIds.js'
+import { createState, lookupComics, applyLookups } from '../api/lib/backfillComicVineIds.js'
 
 
 function parseArgs(argv) {
@@ -61,8 +64,7 @@ function loadVolumeOverrides(flags) {
     if (typeof flags.volumes === 'string') throw new Error(`${path} not found`)
     return {}
   }
-  const raw = JSON.parse(readFileSync(path, 'utf8'))
-  return Object.fromEntries(Object.entries(raw).map(([series, volumeId]) => [normalizeSeriesKey(series), String(volumeId)]))
+  return JSON.parse(readFileSync(path, 'utf8'))
 }
 
 function saveState(path, state) {
