@@ -15,6 +15,7 @@ const VOLUMES = [
   { id: 43460, name: 'Saga', start_year: '2012', publisher: { id: 1, name: 'Image' } },
   { id: 2190, name: 'Fantastic Four Annual', start_year: '1963', publisher: { id: 31, name: 'Marvel' } },
   { id: 2870, name: 'The Spectacular Spider-Man', start_year: '1976', publisher: { id: 31, name: 'Marvel' }, hiddenFromSearch: true },
+  { id: 139754, name: 'Peter Parker, the Spectacular Spider-Man', start_year: '1980', publisher: { id: 31, name: 'Marvel' }, hiddenFromSearch: true },
   { id: 2011, name: 'The Transformers', start_year: '1984', publisher: { id: 31, name: 'Marvel' } },
   { id: 2012, name: 'The Transformers', start_year: '1984', publisher: { id: 32, name: 'Marvel UK/Panini UK' } },
   { id: 4045, name: 'Black Panther', start_year: '1988', publisher: { id: 31, name: 'Marvel' } },
@@ -26,7 +27,8 @@ const ISSUES = [
   { id: 2001, issue_number: '1', cover_date: '1988-07-01', volume: 4045 },
   { id: 2002, issue_number: '1', cover_date: '1998-11-01', volume: 6496 },
   { id: 3001, issue_number: '18', cover_date: '1984-11-01', volume: 2190 },
-  { id: 3002, issue_number: '120', cover_date: '1987-01-01', volume: 2870 },
+  { id: 3002, issue_number: '120', cover_date: '1987-01-01', volume: 139754 },
+  { id: 3005, issue_number: '178', cover_date: '1991-07-01', volume: 2870 },
   { id: 3003, issue_number: '10', cover_date: '1985-11-01', volume: 2011 },
   { id: 3004, issue_number: '10', cover_date: '1985-03-30', volume: 2012 },
 ]
@@ -320,7 +322,7 @@ describe('lookup fixes from the first production run (COM-48)', () => {
     try {
       await seed([{ series: 'The Spectacular Spider-Man', issueNumber: '120', year: 1987 }])
       const state = createState()
-      await lookupAll(state, { volumeOverrides: { 'the spectacular spider-man': '2870' } })
+      await lookupAll(state, { volumeOverrides: { 'the spectacular spider-man': '139754' } })
       expect(only(state)).toMatchObject({ status: 'matched', match: { comicVineId: '3002', year: 1987, month: 1 } })
     } finally {
       process.env.TZ = tz
@@ -345,9 +347,26 @@ describe('lookup fixes from the first production run (COM-48)', () => {
     expect(only(without).status).toBe('no-match')
 
     const state = createState()
-    const { urls } = await lookupAll(state, { volumeOverrides: { 'the spectacular spider-man': '2870' } })
+    const { urls } = await lookupAll(state, { volumeOverrides: { 'the spectacular spider-man': '139754' } })
     expect(urls.some((u) => u.includes('/api/search/'))).toBe(false)
-    expect(only(state)).toMatchObject({ status: 'matched', volumeOverride: '2870', match: { volumeId: '2870' } })
+    expect(only(state)).toMatchObject({ status: 'matched', volumeOverride: '139754', match: { volumeId: '139754' } })
+  })
+
+  it('accepts a list of volumes for a run ComicVine splits', async () => {
+    await seed([
+      { series: 'The Spectacular Spider-Man', issueNumber: '120', year: 1987 },
+      { series: 'The Spectacular Spider-Man', issueNumber: '178', year: 1991 },
+    ])
+
+    const single = createState()
+    await lookupAll(single, { volumeOverrides: { 'The Spectacular Spider-Man': 2870 } })
+    expect(Object.values(single.lookups).map((l) => l.status).sort()).toEqual(['matched', 'no-match'])
+
+    const state = createState()
+    await lookupAll(state, { volumeOverrides: { 'The Spectacular Spider-Man': [2870, 139754] } })
+    const byIssue = Object.fromEntries(Object.values(state.lookups).map((l) => [l.issueNumber, l]))
+    expect(byIssue['120']).toMatchObject({ status: 'matched', volumeOverride: '2870|139754', match: { volumeId: '139754' } })
+    expect(byIssue['178']).toMatchObject({ status: 'matched', match: { volumeId: '2870' } })
   })
 
   it('does not apply a regular series override to that series\' annuals', async () => {

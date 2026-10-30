@@ -188,12 +188,17 @@ export const normalizeSeriesKey = (series) => String(series || '').trim().toLowe
  * Stops early — leaving state consistent — when ComicVine rate-limits, or
  * before a lookup that could exceed `maxRequests`.
  *
- * `volumeOverrides` maps a series name to the ComicVine volume id it belongs
- * to, for series the name search can't find or can't tell apart; those
- * comics are matched within that volume only. Keys are matched against the
- * *search* series, after issue parsing, so annuals need their own entry
- * ("Spectacular Spider-Man Annual") and never inherit the regular volume. `redo` repeats every
- * lookup not yet applied — cheap after a fix, since responses are cached.
+ * `volumeOverrides` maps a series name to the ComicVine volume id(s) it
+ * belongs to, for series the name search can't find or can't tell apart;
+ * those comics are matched within those volumes only. Use a list when
+ * ComicVine splits one run across volumes (The Spectacular Spider-Man #49–134
+ * is "Peter Parker, the Spectacular Spider-Man", 139754; the rest is 2870).
+ * Keys are matched against the *search* series, after issue parsing, so
+ * annuals need their own entry ("Spectacular Spider-Man Annual") and never
+ * inherit the regular volume.
+ *
+ * `redo` repeats every lookup not yet applied — cheap after a fix, since
+ * responses are cached.
  */
 export async function lookupComics(db, {
   state,
@@ -209,7 +214,7 @@ export async function lookupComics(db, {
 }) {
   const pacedFetch = createPacedFetch({ cache: state.cache, intervalMs, fetchImpl, sleep, now })
   const overrides = Object.fromEntries(
-    Object.entries(volumeOverrides).map(([series, volumeId]) => [normalizeSeriesKey(series), String(volumeId)])
+    Object.entries(volumeOverrides).map(([series, volumeIds]) => [normalizeSeriesKey(series), [volumeIds].flat().map(String)])
   )
   const comics = await db.collection('comics')
     .find({ comicVineId: null })
@@ -243,7 +248,7 @@ export async function lookupComics(db, {
     // Same parsing the app does before searching ("Annual 18" → series "X Annual", issue 18)
     const { series, issue } = parseIssueForSearch(comic.series, comic.issueNumber)
     const override = overrides[normalizeSeriesKey(series)]
-    if (override) record.volumeOverride = override
+    if (override) record.volumeOverride = override.join('|')
 
     try {
       const results = await searchComicVineIssues({
@@ -253,9 +258,12 @@ export async function lookupComics(db, {
         year: comic.year,
         apiKey,
         fetchImpl: pacedFetch,
-        volumeIds: override ? [override] : undefined,
+        volumeIds: override,
       })
-      const { status, reason, match } = chooseMatch(override && !comic.volumeId ? { ...comic, volumeId: override } : comic, results)
+      // One override volume is an exact match; with several (ComicVine splits
+      // some runs across volumes) the usual rules pick among their results.
+      const exactVolume = override?.length === 1 && !comic.volumeId ? override[0] : null
+      const { status, reason, match } = chooseMatch(exactVolume ? { ...comic, volumeId: exactVolume } : comic, results)
       Object.assign(record, {
         status,
         reason: reason || null,
