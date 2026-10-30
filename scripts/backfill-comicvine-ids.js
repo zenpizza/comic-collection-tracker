@@ -16,8 +16,9 @@
  *         cached in the state file, so only new URLs cost requests).
  *         Series → volume overrides are read from --volumes (default
  *         .backfill/volume-overrides.json), e.g.
- *           { "The Spectacular Spider-Man": 2870 }
- *         for series the name search can't find or can't tell apart.
+ *           { "The Spectacular Spider-Man": [2870, 139754] }
+ *         for series the name search can't find or can't tell apart. Give a
+ *         list when ComicVine splits one run across several volumes.
  *         Names ignore case and a leading "The". Annuals and specials are
  *         looked up as their own series, so they need their own entry
  *         ("Spectacular Spider-Man Annual") and never use the regular one.
