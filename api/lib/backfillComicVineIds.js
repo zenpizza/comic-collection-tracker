@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb'
 import { searchComicVineIssues } from './comicVineSearch.js'
 import { findAssetByIdentityKey } from './coverAssets.js'
+import { parseIssueForSearch } from '../../src/utils/issueParser.js'
 
 /**
  * Backfill comicVineId for comics that don't have one (COM-48), e.g. those
@@ -104,6 +105,17 @@ const sameText = (a, b) => {
 
 const distinctVolumes = (results) => new Set(results.map((r) => r.metadata.volumeId)).size
 
+const samePublisherExactly = (comic, result) =>
+  String(comic.publisher || '').toLowerCase().trim() === String(result.metadata.publisher || '').toLowerCase().trim()
+
+// Several volumes fit (e.g. Marvel's Transformers and Marvel UK's reprint, both
+// 1985). If exactly one volume's publisher equals the comic's, that's the one.
+const breakTieByPublisher = (comic, results) => {
+  if (!comic.publisher) return null
+  const exact = results.filter((r) => samePublisherExactly(comic, r))
+  return exact.length > 0 && distinctVolumes(exact) === 1 ? exact[0] : null
+}
+
 /**
  * Pick the ComicVine result for a comic, or explain why a person should
  * review it. A wrong match would give the comic another issue's identity
@@ -122,11 +134,11 @@ export function chooseMatch(comic, results) {
   } else if (comic.year) {
     const inYear = results.filter((r) => String(r.metadata.year) === String(comic.year))
     if (inYear.length === 0) return { status: 'needs-review', reason: `no result from ${comic.year}` }
-    if (distinctVolumes(inYear) > 1) return { status: 'needs-review', reason: `several volumes in ${comic.year}` }
-    match = inYear[0]
+    match = distinctVolumes(inYear) > 1 ? breakTieByPublisher(comic, inYear) : inYear[0]
+    if (!match) return { status: 'needs-review', reason: `several volumes in ${comic.year}` }
   } else {
-    if (distinctVolumes(results) > 1) return { status: 'needs-review', reason: 'no year and several volumes' }
-    match = results[0]
+    match = distinctVolumes(results) > 1 ? breakTieByPublisher(comic, results) : results[0]
+    if (!match) return { status: 'needs-review', reason: 'no year and several volumes' }
   }
 
   if (comic.publisher && match.metadata.publisher && !sameText(comic.publisher, match.metadata.publisher)) {
@@ -165,17 +177,26 @@ export function createState() {
   return { version: 1, createdAt: new Date().toISOString(), requests: 0, lookups: {}, cache: {} }
 }
 
+export const normalizeSeriesKey = (series) => String(series || '').trim().toLowerCase()
+
 /**
  * Phase 1: look up every comic without a comicVineId that `state` doesn't
- * already have a result for. Calls `onProgress(state)` after each comic so
- * the caller can save it. Stops early — leaving state consistent — when
+ * already have a result for. Calls `onProgress(state, record)` after each
+ * comic (and `onProgress(state)` once at the end) so the caller can save it. Stops early — leaving state consistent — when
  * ComicVine rate-limits, or before a lookup that could exceed `maxRequests`.
+ *
+ * `volumeOverrides` maps a series name (any case) to the ComicVine volume id
+ * it belongs to, for series the name search can't find or can't tell apart;
+ * those comics are matched within that volume only. `redo` repeats every
+ * lookup not yet applied — cheap after a fix, since responses are cached.
  */
 export async function lookupComics(db, {
   state,
   apiKey,
   intervalMs,
   maxRequests = Infinity,
+  volumeOverrides = {},
+  redo = false,
   fetchImpl = fetch,
   sleep,
   now,
@@ -194,7 +215,8 @@ export async function lookupComics(db, {
   for (const comic of comics) {
     const id = comic._id.toString()
     const previous = state.lookups[id]
-    if (previous && !RETRY_STATUSES.has(previous.status) && !inputsChanged(previous, comic)) continue
+    if (previous?.appliedAt) continue
+    if (previous && !redo && !RETRY_STATUSES.has(previous.status) && !inputsChanged(previous, comic)) continue
 
     if (pacedFetch.requestCount() + MAX_REQUESTS_PER_LOOKUP > maxRequests) {
       stoppedBecause = 'request budget reached'
@@ -210,16 +232,22 @@ export async function lookupComics(db, {
       lookedUpAt: new Date().toISOString(),
     }
 
+    const override = volumeOverrides[normalizeSeriesKey(comic.series)]
+    if (override) record.volumeOverride = String(override)
+
     try {
+      // Same parsing the app does before searching ("Annual 18" → series "X Annual", issue 18)
+      const { series, issue } = parseIssueForSearch(comic.series, comic.issueNumber)
       const results = await searchComicVineIssues({
-        series: comic.series,
-        issue: comic.issueNumber,
+        series,
+        issue,
         publisher: comic.publisher,
         year: comic.year,
         apiKey,
         fetchImpl: pacedFetch,
+        volumeIds: override ? [override] : undefined,
       })
-      const { status, reason, match } = chooseMatch(comic, results)
+      const { status, reason, match } = chooseMatch(override && !comic.volumeId ? { ...comic, volumeId: override } : comic, results)
       Object.assign(record, {
         status,
         reason: reason || null,
@@ -237,7 +265,7 @@ export async function lookupComics(db, {
     state.lookups[id] = record
     state.requests = requestsBeforeRun + pacedFetch.requestCount()
     processed++
-    onProgress(state)
+    onProgress(state, record)
   }
 
   state.requests = requestsBeforeRun + pacedFetch.requestCount()

@@ -13,6 +13,10 @@ import {
 // for volumes; only /volumes has it.
 const VOLUMES = [
   { id: 43460, name: 'Saga', start_year: '2012', publisher: { id: 1, name: 'Image' } },
+  { id: 2190, name: 'Fantastic Four Annual', start_year: '1963', publisher: { id: 31, name: 'Marvel' } },
+  { id: 2870, name: 'The Spectacular Spider-Man', start_year: '1976', publisher: { id: 31, name: 'Marvel' }, hiddenFromSearch: true },
+  { id: 2011, name: 'The Transformers', start_year: '1984', publisher: { id: 31, name: 'Marvel' } },
+  { id: 2012, name: 'The Transformers', start_year: '1984', publisher: { id: 32, name: 'Marvel UK/Panini UK' } },
   { id: 4045, name: 'Black Panther', start_year: '1988', publisher: { id: 31, name: 'Marvel' } },
   { id: 6496, name: 'Black Panther', start_year: '1998', publisher: { id: 31, name: 'Marvel' } },
 ]
@@ -21,6 +25,10 @@ const ISSUES = [
   { id: 1002, issue_number: '2', cover_date: '2012-04-01', volume: 43460 },
   { id: 2001, issue_number: '1', cover_date: '1988-07-01', volume: 4045 },
   { id: 2002, issue_number: '1', cover_date: '1998-11-01', volume: 6496 },
+  { id: 3001, issue_number: '18', cover_date: '1984-11-01', volume: 2190 },
+  { id: 3002, issue_number: '120', cover_date: '1987-01-01', volume: 2870 },
+  { id: 3003, issue_number: '10', cover_date: '1985-11-01', volume: 2011 },
+  { id: 3004, issue_number: '10', cover_date: '1985-03-30', volume: 2012 },
 ]
 
 const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => ({ error: 'OK', ...body }) })
@@ -29,7 +37,11 @@ function fakeComicVine(url) {
   const { pathname, searchParams } = new URL(url)
   if (pathname === '/api/search/') {
     const query = searchParams.get('query').toLowerCase()
-    return json({ results: VOLUMES.filter((v) => v.name.toLowerCase() === query).map((v) => ({ ...v, publisher: null })) })
+    return json({
+      results: VOLUMES
+        .filter((v) => !v.hiddenFromSearch && v.name.toLowerCase() === query)
+        .map(({ hiddenFromSearch, ...v }) => ({ ...v, publisher: null })),
+    })
   }
   if (pathname === '/api/issues/') {
     const [, ids, number] = searchParams.get('filter').match(/volume:([\d|]+),issue_number:(.+)/)
@@ -114,6 +126,14 @@ describe('chooseMatch (COM-48)', () => {
   it('needs review when the publisher disagrees', () => {
     expect(chooseMatch({ year: 1998, publisher: 'DC' }, [bp98]).status).toBe('needs-review')
     expect(chooseMatch({ year: 1998, publisher: 'Marvel Comics' }, [bp98]).status).toBe('matched')
+  })
+
+  it('breaks a same-year tie by an exact publisher match', () => {
+    const us = result(3003, 2011, 1985, 'Marvel')
+    const uk = result(3004, 2012, 1985, 'Marvel UK/Panini UK')
+    expect(chooseMatch({ year: 1985, publisher: 'Marvel' }, [us, uk])).toMatchObject({ status: 'matched', match: us })
+    expect(chooseMatch({ publisher: 'Marvel' }, [us, uk])).toMatchObject({ status: 'matched', match: us })
+    expect(chooseMatch({ year: 1985 }, [us, uk]).status).toBe('needs-review')
   })
 
   it('reports no-match for no results', () => {
@@ -266,5 +286,81 @@ describe('lookupComics + applyLookups (COM-48)', () => {
 
     expect(applied.updated).toBe(3)
     expect(applied.changes.find((c) => c.comicId === ids[SAGA_2]).set).toEqual({ comicVineId: '1002', identityKey: 'comicvine|1002' })
+  })
+})
+
+describe('lookup fixes from the first production run (COM-48)', () => {
+  let db
+  let stop
+  const seed = (comics) => db.collection('comics').insertMany(comics.map((c) => ({
+    userId: 'user_b', publisher: 'Marvel', year: null, comicVineId: null, identityKey: `manual|${c.series}|${c.issueNumber}`, ...c,
+  })))
+  const lookupAll = async (state, options = {}) => {
+    const fetchImpl = vi.fn(async (url) => fakeComicVine(url))
+    const run = await lookupComics(db, { state, apiKey: 'k', fetchImpl, ...noWait, ...options })
+    return { run, fetchImpl, urls: fetchImpl.mock.calls.map(([u]) => decodeURIComponent(u)) }
+  }
+  const only = (state) => Object.values(state.lookups)[0]
+
+  beforeAll(async () => {
+    ({ db, stop } = await startTestDb())
+  })
+
+  afterAll(async () => {
+    await stop()
+  })
+
+  beforeEach(async () => {
+    await db.collection('comics').deleteMany({})
+  })
+
+  it('reads a January cover date as that year in any timezone', async () => {
+    const tz = process.env.TZ
+    process.env.TZ = 'America/New_York'
+    try {
+      await seed([{ series: 'The Spectacular Spider-Man', issueNumber: '120', year: 1987 }])
+      const state = createState()
+      await lookupAll(state, { volumeOverrides: { 'the spectacular spider-man': '2870' } })
+      expect(only(state)).toMatchObject({ status: 'matched', match: { comicVineId: '3002', year: 1987, month: 1 } })
+    } finally {
+      process.env.TZ = tz
+    }
+  })
+
+  it('searches annuals the way the app does', async () => {
+    await seed([{ series: 'Fantastic Four', issueNumber: 'Annual 18', year: 1984 }])
+    const state = createState()
+    const { urls } = await lookupAll(state)
+
+    expect(urls[0]).toContain('query=Fantastic+Four+Annual')
+    expect(urls[1]).toContain('issue_number:18')
+    expect(only(state)).toMatchObject({ status: 'matched', match: { comicVineId: '3001' } })
+  })
+
+  it('uses a series volume override instead of the name search', async () => {
+    await seed([{ series: 'The Spectacular Spider-Man', issueNumber: '120', year: 1987 }])
+
+    const without = createState()
+    await lookupAll(without)
+    expect(only(without).status).toBe('no-match')
+
+    const state = createState()
+    const { urls } = await lookupAll(state, { volumeOverrides: { 'the spectacular spider-man': '2870' } })
+    expect(urls.some((u) => u.includes('/api/search/'))).toBe(false)
+    expect(only(state)).toMatchObject({ status: 'matched', volumeOverride: '2870', match: { volumeId: '2870' } })
+  })
+
+  it('redo repeats lookups not yet applied, served from cache', async () => {
+    await seed([{ series: 'The Transformers', issueNumber: '10', year: 1985 }])
+    const state = createState()
+    await lookupAll(state)
+    expect(only(state)).toMatchObject({ status: 'matched', match: { volumeId: '2011' } }) // tie broken by publisher
+
+    const skipped = await lookupAll(state)
+    expect(skipped.run.processed).toBe(0)
+
+    const redone = await lookupAll(state, { redo: true })
+    expect(redone.run.processed).toBe(1)
+    expect(redone.fetchImpl).not.toHaveBeenCalled()
   })
 })
