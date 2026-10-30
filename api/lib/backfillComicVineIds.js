@@ -122,7 +122,7 @@ const breakTieByPublisher = (comic, results) => {
  * (and possibly its shared cover), so anything ambiguous is left for review
  * rather than taking the top-ranked result.
  */
-export function chooseMatch(comic, results) {
+export function chooseMatch(comic, results, { volumeChosenByUser = false } = {}) {
   if (results.length === 0) {
     return { status: 'no-match' }
   }
@@ -141,7 +141,9 @@ export function chooseMatch(comic, results) {
     if (!match) return { status: 'needs-review', reason: 'no year and several volumes' }
   }
 
-  if (comic.publisher && match.metadata.publisher && !sameText(comic.publisher, match.metadata.publisher)) {
+  // A volume the user picked settles it, e.g. Impact Comics titles that
+  // ComicVine lists under DC Comics.
+  if (!volumeChosenByUser && comic.publisher && match.metadata.publisher && !sameText(comic.publisher, match.metadata.publisher)) {
     return { status: 'needs-review', reason: `publisher ${match.metadata.publisher} ≠ ${comic.publisher}` }
   }
 
@@ -263,7 +265,9 @@ export async function lookupComics(db, {
       // One override volume is an exact match; with several (ComicVine splits
       // some runs across volumes) the usual rules pick among their results.
       const exactVolume = override?.length === 1 && !comic.volumeId ? override[0] : null
-      const { status, reason, match } = chooseMatch(exactVolume ? { ...comic, volumeId: exactVolume } : comic, results)
+      const { status, reason, match } = exactVolume
+        ? chooseMatch({ ...comic, volumeId: exactVolume }, results, { volumeChosenByUser: true })
+        : chooseMatch(comic, results)
       Object.assign(record, {
         status,
         reason: reason || null,

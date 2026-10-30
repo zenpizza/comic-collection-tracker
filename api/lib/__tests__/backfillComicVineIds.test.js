@@ -130,6 +130,12 @@ describe('chooseMatch (COM-48)', () => {
     expect(chooseMatch({ year: 1998, publisher: 'Marvel Comics' }, [bp98]).status).toBe('matched')
   })
 
+  it('accepts a publisher mismatch when the user chose the volume', () => {
+    // e.g. Impact Comics titles, which ComicVine lists under DC Comics
+    expect(chooseMatch({ volumeId: '6496', publisher: 'Impact Comics' }, [bp98], { volumeChosenByUser: true }).status).toBe('matched')
+    expect(chooseMatch({ volumeId: '6496', publisher: 'Impact Comics' }, [bp98]).status).toBe('needs-review')
+  })
+
   it('breaks a same-year tie by an exact publisher match', () => {
     const us = result(3003, 2011, 1985, 'Marvel')
     const uk = result(3004, 2012, 1985, 'Marvel UK/Panini UK')
