@@ -395,6 +395,20 @@ describe('lookup fixes from the first production run (COM-48)', () => {
     expect(urls.some((u) => u.includes('volume:3012,issue_number:1'))).toBe(true)
   })
 
+  it('trusts a single override that agrees with the comic\'s saved volume, despite the publisher', async () => {
+    await seed([
+      { series: 'The Spectacular Spider-Man', issueNumber: '120', year: 1987, publisher: 'Impact Comics', volumeId: '139754' },
+      { series: 'The Spectacular Spider-Man', issueNumber: '178', year: 1991, publisher: 'Impact Comics', volumeId: '2870' },
+    ])
+    const state = createState()
+    await lookupAll(state, { volumeOverrides: { 'The Spectacular Spider-Man': 139754 } })
+    const byIssue = Object.fromEntries(Object.values(state.lookups).map((l) => [l.issueNumber, l]))
+
+    expect(byIssue['120']).toMatchObject({ status: 'matched', match: { volumeId: '139754' } })
+    // Saved volume disagrees with the override: not trusted, so it goes to review
+    expect(byIssue['178'].status).not.toBe('matched')
+  })
+
   it('redo repeats lookups not yet applied, served from cache', async () => {
     await seed([{ series: 'The Transformers', issueNumber: '10', year: 1985 }])
     const state = createState()
