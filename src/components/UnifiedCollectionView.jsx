@@ -2,9 +2,14 @@ import React, { useMemo, useRef, useState, useEffect } from 'react'
 import CoverImage from './CoverImage'
 import ComicDetailView from './ComicDetailView'
 import { compareSeriesNames } from '../utils/sortUtils'
+import { useFillViewportHeight } from '../utils/useFillViewportHeight'
 import './UnifiedCollectionView.css'
 
 const DRAG_THRESHOLD_PX = 6
+
+// Space to leave below the two panels: .app-shell's bottom margin plus the
+// view panel's border.
+const BODY_BOTTOM_GAP_PX = 30
 
 const parseIssueNumber = (issueNumber) => {
   if (issueNumber === null || issueNumber === undefined) return null
@@ -85,6 +90,14 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
   const [selectedComic, setSelectedComic] = useState(null)
   const dragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0, moved: false })
   const scrollerRef = useRef(null)
+  const bodyRef = useRef(null)
+  const listRef = useRef(null)
+  const panelRightRef = useRef(null)
+
+  // Fill the window below the stats strip so the title list and issues panel
+  // scroll separately (the CSS ignores this on phones, where the list is a
+  // drawer and the page scrolls).
+  const bodyHeight = useFillViewportHeight(bodyRef, { bottomGap: BODY_BOTTOM_GAP_PX })
 
   // Select first series on initial load
   useEffect(() => {
@@ -101,6 +114,26 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
       setSelectedComic(updated)
     }
   }, [comics, selectedComic])
+
+  // A newly picked title opens at the top of the issues panel, not wherever
+  // the previous one was scrolled to.
+  useEffect(() => {
+    if (panelRightRef.current) panelRightRef.current.scrollTop = 0
+  }, [selectedSeries])
+
+  // Keep the selected title visible in the list — on first load, and when a
+  // search is cleared and the full list comes back. Scrolls only the list,
+  // never the page.
+  useEffect(() => {
+    if (searchTerm) return
+    const list = listRef.current
+    const row = list?.querySelector('.ucv__series-row.is-active')
+    if (!row) return
+    const rowRect = row.getBoundingClientRect()
+    const listRect = list.getBoundingClientRect()
+    if (rowRect.top < listRect.top) list.scrollTop -= listRect.top - rowRect.top
+    else if (rowRect.bottom > listRect.bottom) list.scrollTop += rowRect.bottom - listRect.bottom
+  }, [searchTerm, selectedSeries])
 
   const filteredSeries = useMemo(() => {
     if (!searchTerm) return seriesData
@@ -206,7 +239,11 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
         </button>
       </div>
 
-      <div className="ucv__body">
+      <div
+        className="ucv__body"
+        ref={bodyRef}
+        style={bodyHeight ? { '--ucv-body-height': `${bodyHeight}px` } : undefined}
+      >
         {/* Mobile overlay behind the drawer */}
         {drawerOpen && (
           <div
@@ -242,7 +279,7 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
               aria-label="Search titles"
             />
           </div>
-          <ul className="ucv__series-list" role="listbox" aria-label="Series">
+          <ul className="ucv__series-list" role="listbox" aria-label="Series" ref={listRef}>
             {filteredSeries.map((s) => (
               <li
                 key={s.seriesName}
@@ -271,7 +308,7 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
         </aside>
 
         {/* Right panel: series detail */}
-        <main className="ucv__panel-right">
+        <main className="ucv__panel-right" ref={panelRightRef}>
           {comics.length === 0 ? (
             <div className="ucv__empty">
               Add comics to your collection to get started.
