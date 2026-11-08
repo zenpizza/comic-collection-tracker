@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import CoverImage from './CoverImage'
 import CoverUploader from './CoverUploader'
 import CoverSelector from './CoverSelector'
@@ -6,11 +6,12 @@ import ImageURLService from '../utils/ImageURLService'
 import coverAPIService from '../utils/coverAPIService'
 import { getSortedUniqueSeriesNames } from '../utils/sortUtils'
 import { MONTH_NAMES, monthName } from '../utils/months'
+import { applyCreditFields, creditsToFields, groupCredits } from '../utils/credits'
 import './ComicDetailView.css'
 
 // Edit form values for a comic. Rebuilt whenever editing starts so fields
-// filled in by a cover selection (publisher, year, month) aren't shown blank and
-// then saved back over the comic.
+// filled in by a cover selection (publisher, year, month) or a credits lookup
+// aren't shown blank and then saved back over the comic.
 const editFormFromComic = (comic) => ({
   series: comic.series,
   issueNumber: comic.issueNumber,
@@ -18,7 +19,9 @@ const editFormFromComic = (comic) => ({
   year: comic.year || '',
   month: comic.month ? String(comic.month) : '',
   variant: comic.variant || '',
-  notes: comic.notes || ''
+  notes: comic.notes || '',
+  // Writer(s) / Artist(s) text; applied to comic.credits on save
+  ...creditsToFields(comic.credits)
 })
 
 function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
@@ -35,6 +38,61 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
   const [coverRefreshKey, setCoverRefreshKey] = useState(0)
   const [showFullSizeImage, setShowFullSizeImage] = useState(false)
   const [coverSearchError, setCoverSearchError] = useState(null)
+  const [loadingCredits, setLoadingCredits] = useState(false)
+  // Latest comic and edit state, for the credits lookup that resolves later
+  const latestComic = useRef(comic)
+  latestComic.current = comic
+  const creditsRequested = useRef(new Set())
+  const mounted = useRef(true)
+  // Set on setup too: StrictMode runs setup → cleanup → setup on mount
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+
+  // Comics with a ComicVine id get their creator credits the first time
+  // they're opened (COM-55): one lookup, saved — [] when ComicVine has none,
+  // so it isn't repeated. A failed lookup saves nothing and retries next time.
+  useEffect(() => {
+    const hasCredits = comic.credits !== null && comic.credits !== undefined
+    if (!comic.comicVineId || hasCredits || creditsRequested.current.has(comic.id)) return
+    creditsRequested.current.add(comic.id)
+    setLoadingCredits(true)
+
+    coverAPIService.fetchIssueCredits(comic.comicVineId)
+      .then((credits) => {
+        if (!mounted.current) return
+        const current = latestComic.current
+        if (current.id !== comic.id) return
+        // Creators saved by hand while the lookup was running win
+        if (current.credits !== null && current.credits !== undefined) return
+        // Save onto the latest version, so an edit saved meanwhile isn't undone.
+        // An open edit form picks the credits up when the saved comic comes
+        // back (see the comic.credits effect below).
+        onSave({ ...current, credits })
+      })
+      .catch((error) => console.warn('Could not fetch creator credits:', error.message))
+      .finally(() => { if (mounted.current) setLoadingCredits(false) })
+  }, [comic.id, comic.comicVineId, comic.credits])
+
+  // Creator text the edit form started from. Only inputs changed from this
+  // are applied on save, so credits that land while the form is open (the
+  // lookup, or its save completing after Edit Details was clicked) are never
+  // wiped by inputs the user didn't touch.
+  const creatorFieldsAtStart = useRef(creditsToFields(comic.credits))
+
+  // Keep untouched creator inputs in step with the comic's credits
+  useEffect(() => {
+    if (!isEditing) return
+    const start = creatorFieldsAtStart.current
+    const next = creditsToFields(comic.credits)
+    creatorFieldsAtStart.current = next
+    setEditForm(prev => ({
+      ...prev,
+      writers: prev.writers === start.writers ? next.writers : prev.writers,
+      artists: prev.artists === start.artists ? next.artists : prev.artists,
+    }))
+  }, [comic.credits])
 
   useEffect(() => {
     // Close dropdowns when clicking outside
@@ -84,9 +142,17 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
       return
     }
 
+    const { writers, artists, ...fields } = editForm
+    const start = creatorFieldsAtStart.current
+    // Only creator inputs the user changed are applied (undefined = leave as is)
+    const changedCreators = {
+      writers: writers !== start.writers ? writers : undefined,
+      artists: artists !== start.artists ? artists : undefined,
+    }
     const updatedComic = {
       ...comic,
-      ...editForm,
+      ...fields,
+      credits: applyCreditFields(comic.credits, changedCreators),
       issueNumber: parseInt(editForm.issueNumber) || editForm.issueNumber
     }
 
@@ -95,11 +161,13 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
   }
 
   const handleStartEdit = () => {
+    creatorFieldsAtStart.current = creditsToFields(comic.credits)
     setEditForm(editFormFromComic(comic))
     setIsEditing(true)
   }
 
   const handleCancel = () => {
+    creatorFieldsAtStart.current = creditsToFields(comic.credits)
     setEditForm(editFormFromComic(comic))
     setIsEditing(false)
   }
@@ -320,6 +388,8 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
   const hasCover = Boolean(comic.hasCover || comic.coverUrl || comic.coverId)
   const checkingCover = false
 
+  const creditGroups = groupCredits(comic.credits)
+
   return (
     <div className="comic-detail-overlay" onClick={onClose}>
       <div className="comic-detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -493,6 +563,28 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                 )}
 
                 <div className="form-group">
+                  <label>Writer(s)</label>
+                  <input
+                    type="text"
+                    value={editForm.writers}
+                    onChange={(e) => handleChange('writers', e.target.value)}
+                    className="form-input"
+                    placeholder="Separate names with commas"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Artist(s)</label>
+                  <input
+                    type="text"
+                    value={editForm.artists}
+                    onChange={(e) => handleChange('artists', e.target.value)}
+                    className="form-input"
+                    placeholder="Separate names with commas"
+                  />
+                </div>
+
+                <div className="form-group">
                   <label>Variant</label>
                   <input
                     type="text"
@@ -553,6 +645,30 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                       <span className="detail-value">{monthName(comic.month)}</span>
                     </div>
                   )}
+
+                  {creditGroups.writers.length > 0 && (
+                    <div className="detail-item">
+                      <span className="detail-label">{creditGroups.writers.length > 1 ? 'Writers:' : 'Writer:'}</span>
+                      <span className="detail-value">{creditGroups.writers.join(', ')}</span>
+                    </div>
+                  )}
+
+                  {creditGroups.artists.length > 0 && (
+                    <div className="detail-item">
+                      <span className="detail-label">{creditGroups.artists.length > 1 ? 'Artists:' : 'Artist:'}</span>
+                      <span className="detail-value">
+                        {creditGroups.artists.map(({ name, detail }) => (detail ? `${name} (${detail})` : name)).join(', ')}
+                      </span>
+                    </div>
+                  )}
+
+                  {creditGroups.other.length > 0 && (
+                    <p className="detail-credits-other">
+                      Also: {creditGroups.other.map(({ label, names }) => `${label} ${names.join(', ')}`).join(' · ')}
+                    </p>
+                  )}
+
+                  {loadingCredits && <p className="detail-credits-other">Looking up creators…</p>}
 
                   {comic.volumeName && (
                     <div className="detail-item volume-info">

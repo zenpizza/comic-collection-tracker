@@ -4,7 +4,7 @@
  */
 
 import { requireAuth } from './auth.js'
-import { searchComicVineIssues } from './lib/comicVineSearch.js'
+import { searchComicVineIssues, fetchIssueCredits } from './lib/comicVineSearch.js'
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -24,9 +24,9 @@ export default async function handler(req, res) {
 
   try {
     console.log('Cover search API called with:', req.query)
-    const { series, issue, publisher, year } = req.query
+    const { series, issue, publisher, year, issueId } = req.query
 
-    if (!series || !issue) {
+    if (!issueId && (!series || !issue)) {
       console.log('Missing parameters:', { series, issue })
       return res.status(400).json({
         error: 'Missing required parameters: series and issue'
@@ -42,6 +42,12 @@ export default async function handler(req, res) {
         error: 'Comic Vine API key not configured on server',
         details: 'Set COMICVINE_API_KEY environment variable'
       })
+    }
+
+    // Credits mode: ?issueId=<ComicVine issue id> returns that issue's creators
+    if (issueId) {
+      const credits = await fetchIssueCredits({ issueId, apiKey })
+      return res.json({ success: true, credits })
     }
 
     const processedResults = await searchComicVineIssues({ series, issue, publisher, year, apiKey })

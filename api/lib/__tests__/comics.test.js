@@ -148,6 +148,27 @@ describe('comics + coverAssets integration', () => {
     expect(invalid.month).toBeNull()
   })
 
+  it('stores creator credits (COM-55) normalized, outside the identity key', async () => {
+    const comic = await addComic(db, {
+      userId: 'user_cr',
+      comic: {
+        series: 'Black Panther', issueNumber: '98', publisher: 'Marvel', year: 1985,
+        credits: [{ name: ' Herb Trimpe ', roles: ['Artist', 'Penciller'] }, { name: '', roles: ['writer'] }, { name: 'No Role', roles: [] }],
+      },
+    })
+    expect(comic.credits).toEqual([{ name: 'Herb Trimpe', roles: ['artist', 'penciler'] }])
+
+    const updated = await updateComic(db, { userId: 'user_cr', comicId: comic.id, updates: { credits: [{ name: 'Al Milgrom', roles: ['writer'] }] } })
+    expect(updated.credits).toEqual([{ name: 'Al Milgrom', roles: ['writer'] }])
+    expect(updated.identityKey).toBe(comic.identityKey)
+
+    const none = await updateComic(db, { userId: 'user_cr', comicId: comic.id, updates: { credits: [] } })
+    expect(none.credits).toEqual([]) // fetched, none found — distinct from never fetched
+
+    const fresh = await addComic(db, { userId: 'user_cr', comic: { series: 'Black Panther', issueNumber: '99', year: 1985 } })
+    expect(fresh.credits).toBeNull() // never fetched
+  })
+
   it('editing a canonical field to match another existing identity adopts that identity\'s shared asset', async () => {
     const targetMetadata = { series: 'Paper Girls', issueNumber: '1', publisher: 'Image', year: 2015 }
     const asset = await createAsset(db, { identityKey: buildIdentityKey(targetMetadata), images: { medium: { data: 'y' } } })

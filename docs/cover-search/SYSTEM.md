@@ -116,6 +116,8 @@ setCoverManagerMode('search') // only reached when results exist
 
 #### 2. ComicForm (Adding New Comics)
 
+The form is look-up first (COM-55): **Find on ComicVine** runs this search with the series, issue number and the optional year/publisher hints. One result is selected automatically; several open `CoverSelector`. After a match, `coverAPIService.fetchIssueCredits(apiId)` (`GET /api/cover-search?issueId=<id>`, ComicVine's per-issue endpoint) fills in the creator credits.
+
 ```javascript
 // src/components/ComicForm.jsx
 const { parseIssueForSearch } = await import('../utils/issueParser')

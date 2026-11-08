@@ -311,6 +311,24 @@ class CoverAPIService {
   }
 
   /**
+   * Creator credits for a ComicVine issue (COM-55), as [{ name, roles[] }].
+   * One request on ComicVine's per-issue endpoint, via the cover-search proxy.
+   * @param {string|number} comicVineId - ComicVine issue id
+   * @returns {Promise<Array<{name: string, roles: string[]}>>}
+   */
+  async fetchIssueCredits(comicVineId) {
+    const url = new URL('/api/cover-search', window.location.origin)
+    url.searchParams.set('issueId', String(comicVineId))
+
+    const response = await this.makeInternalRequest(url.toString())
+    const data = await response.json()
+    if (!response.ok || !data.success) {
+      throw new Error(data.details || data.error || `Credits lookup failed (${response.status})`)
+    }
+    return data.credits || []
+  }
+
+  /**
    * Search Marvel API for covers
    */
   async searchMarvel(series, issue, publisher) {

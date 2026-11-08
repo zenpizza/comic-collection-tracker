@@ -57,7 +57,10 @@ export default async function handler(req, res) {
         issueNumber: existing.issueNumber,
         publisher: existing.publisher,
         year: existing.year,
+        month: existing.month ?? null,
         variant: existing.variant,
+        comicVineId: existing.comicVineId ?? null,
+        credits: existing.credits ?? null,
         volumeId: existing.volumeId,
         volumeName: existing.volumeName,
         hasCover: true
