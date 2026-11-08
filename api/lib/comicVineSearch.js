@@ -44,6 +44,44 @@ const isLikelyNonEnglish = (volumeName) => {
 }
 
 /**
+ * Creator credits for one ComicVine issue, as [{ name, roles[] }]. Only the
+ * per-issue endpoint has person_credits (the /issues list ignores it in
+ * field_list). A role string can hold several roles ("artist, penciler"),
+ * and a person can appear more than once; both are merged.
+ */
+export async function fetchIssueCredits({ issueId, apiKey, fetchImpl = fetch }) {
+  const id = String(issueId).replace(/\D/g, '')
+  if (!id) throw new Error('A ComicVine issue id is required')
+
+  const url = new URL(`https://comicvine.gamespot.com/api/issue/4000-${id}/`)
+  url.searchParams.set('api_key', apiKey)
+  url.searchParams.set('format', 'json')
+  url.searchParams.set('field_list', 'person_credits')
+
+  const response = await fetchImpl(url.toString(), {
+    headers: { 'User-Agent': 'Comic Collection Tracker/1.0' }
+  })
+  if (!response.ok) throw new Error(`Comic Vine API responded with ${response.status}`)
+
+  const data = await response.json()
+  if (data.error !== 'OK') throw new Error(`Comic Vine API error: ${data.error}`)
+
+  const byName = new Map()
+  for (const person of data.results?.person_credits || []) {
+    const name = String(person.name || '').trim()
+    if (!name) continue
+    const roles = String(person.role || '')
+      .split(',')
+      .map((role) => role.trim().toLowerCase())
+      .filter(Boolean)
+    const credit = byName.get(name) || { name, roles: [] }
+    roles.forEach((role) => { if (!credit.roles.includes(role)) credit.roles.push(role) })
+    byName.set(name, credit)
+  }
+  return [...byName.values()].filter((credit) => credit.roles.length > 0)
+}
+
+/**
  * Fetch publishers for the given volume IDs. ComicVine's /search endpoint
  * returns `publisher: null` for volumes even when it's in field_list, so the
  * /volumes endpoint is the only source. Failure is non-fatal: results just

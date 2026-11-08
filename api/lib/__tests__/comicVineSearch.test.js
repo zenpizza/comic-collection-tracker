@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { searchComicVineIssues } from '../comicVineSearch.js'
+import { searchComicVineIssues, fetchIssueCredits } from '../comicVineSearch.js'
 
 const ok = (body) => ({ ok: true, json: async () => ({ error: 'OK', ...body }) })
 
@@ -72,5 +72,51 @@ describe('searchComicVineIssues publisher (COM-49)', () => {
 
     expect(results).toHaveLength(2)
     expect(results.every(r => r.metadata.publisher === '')).toBe(true)
+  })
+})
+
+describe('fetchIssueCredits (COM-55)', () => {
+  // Shape of a real /issue/4000-25171/ response (Black Panther #98)
+  const issueResponse = ok({
+    results: {
+      person_credits: [
+        { id: 1, name: 'Al Milgrom', role: 'writer' },
+        { id: 2, name: 'Herb Trimpe', role: 'artist, penciler' },
+        { id: 3, name: 'Jim Mooney', role: 'inker' },
+        { id: 4, name: 'Danny Fingeroth', role: 'editor' },
+        { id: 2, name: 'Herb Trimpe', role: 'cover' },
+        { id: 5, name: '', role: 'letterer' },
+      ],
+    },
+  })
+
+  it('requests person_credits from the per-issue endpoint', async () => {
+    const fetch = vi.fn(async () => issueResponse)
+    await fetchIssueCredits({ issueId: '25171', apiKey: 'k', fetchImpl: fetch })
+
+    const url = fetch.mock.calls[0][0]
+    expect(url).toContain('/api/issue/4000-25171/')
+    expect(url).toContain('field_list=person_credits')
+  })
+
+  it('splits multi-role strings, merges repeated people, and drops nameless entries', async () => {
+    const credits = await fetchIssueCredits({ issueId: 25171, apiKey: 'k', fetchImpl: async () => issueResponse })
+
+    expect(credits).toEqual([
+      { name: 'Al Milgrom', roles: ['writer'] },
+      { name: 'Herb Trimpe', roles: ['artist', 'penciler', 'cover'] },
+      { name: 'Jim Mooney', roles: ['inker'] },
+      { name: 'Danny Fingeroth', roles: ['editor'] },
+    ])
+  })
+
+  it('returns [] when ComicVine lists no credits', async () => {
+    const credits = await fetchIssueCredits({ issueId: 1, apiKey: 'k', fetchImpl: async () => ok({ results: {} }) })
+    expect(credits).toEqual([])
+  })
+
+  it('throws on an API error', async () => {
+    const fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ error: 'Object Not Found' }) })
+    await expect(fetchIssueCredits({ issueId: 1, apiKey: 'k', fetchImpl })).rejects.toThrow(/Object Not Found/)
   })
 })

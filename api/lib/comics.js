@@ -10,6 +10,23 @@ export class DuplicateComicError extends Error {
   }
 }
 
+// Creator credits from ComicVine (or typed by the user): [{ name, roles[] }].
+// null means never fetched; [] means fetched and ComicVine had none — the
+// detail view uses that difference to fetch credits once. Not part of the
+// identity key.
+export function normalizeCredits(credits) {
+  if (!Array.isArray(credits)) return null
+  return credits
+    .map((credit) => ({
+      name: String(credit?.name ?? '').trim(),
+      roles: (Array.isArray(credit?.roles) ? credit.roles : [])
+        .map((role) => String(role).trim().toLowerCase())
+        .map((role) => (role === 'penciller' ? 'penciler' : role))
+        .filter(Boolean),
+    }))
+    .filter((credit) => credit.name && credit.roles.length > 0)
+}
+
 // Optional cover month, stored as 1–12 or null. Not part of the identity key.
 export function normalizeMonth(month) {
   const n = Number(month)
@@ -45,6 +62,7 @@ function toFlatComic(doc) {
     publisher: doc.publisher,
     year: doc.year,
     month: doc.month ?? null,
+    credits: doc.credits ?? null,
     variant: doc.variant,
     notes: doc.notes,
     dateAdded: doc.dateAdded,
@@ -91,6 +109,7 @@ export async function addComic(db, { userId, comic }) {
     publisher: comic.publisher || null,
     year: comic.year && !isNaN(comic.year) ? Number(comic.year) : comic.year || null,
     month: normalizeMonth(comic.month),
+    credits: normalizeCredits(comic.credits),
     variant: comic.variant || null,
     notes: comic.notes || '',
     dateAdded: comic.dateAdded || now,
@@ -143,6 +162,7 @@ export async function updateComic(db, { userId, comicId, updates }) {
   if (updates.notes !== undefined) set.notes = updates.notes
   if (updates.dateAdded !== undefined) set.dateAdded = updates.dateAdded
   if (updates.month !== undefined) set.month = normalizeMonth(updates.month)
+  if (updates.credits !== undefined) set.credits = normalizeCredits(updates.credits)
 
   const hasCanonicalEdit = CANONICAL_FIELDS.some((field) => field in updates)
   if (hasCanonicalEdit) {

@@ -9,21 +9,42 @@ import imagePipeline from '../utils/imagePipeline'
 import coverAPIService from '../utils/coverAPIService'
 import { apiFetch } from '../utils/apiClient'
 import { applyCoverMetadataToForm } from '../utils/coverFormFill'
+import { applyCreditFields, creditsToFields, groupCredits } from '../utils/credits'
 import { MONTH_NAMES } from '../utils/months'
 import './ComicForm.css'
 
+const EMPTY_FORM = {
+  series: '',
+  issueNumber: '',
+  publisher: '',
+  year: '',
+  month: '',
+  variant: '',
+  notes: '',
+  volumeId: '',
+  volumeName: '',
+  comicVineId: '',
+  credits: null,
+  // Editable text for the creator inputs; turned into credits on submit
+  writers: '',
+  artists: ''
+}
+
+/**
+ * Add Comic, look-up first (COM-55):
+ *   find   — Series + Issue # (optionally year/publisher); Find on ComicVine
+ *   review — the match's details pre-filled (incl. creators) for checking
+ *   manual — the full form, for comics ComicVine doesn't have
+ */
 function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existingComics = [] }) {
-  const [formData, setFormData] = useState({
-    series: '',
-    issueNumber: '',
-    publisher: '',
-    year: '',
-    month: '',
-    variant: '',
-    notes: '',
-    volumeId: '',
-    volumeName: ''
-  })
+  const [step, setStep] = useState('find')
+  const [showRefine, setShowRefine] = useState(false)
+  const [formData, setFormData] = useState(EMPTY_FORM)
+  // Inputs as they were when Find was pressed, so Change match can undo the
+  // fields the match filled in (year/publisher are also search hints)
+  const [searchInputs, setSearchInputs] = useState(null)
+  const [creditsStatus, setCreditsStatus] = useState(null) // 'loading' | 'error' | null
+  const [libraryMatch, setLibraryMatch] = useState(false)
   const [showSeriesDropdown, setShowSeriesDropdown] = useState(false)
   const [filteredSeries, setFilteredSeries] = useState([])
   const [showPublisherDropdown, setShowPublisherDropdown] = useState(false)
@@ -35,7 +56,6 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
   const [isSearchingCovers, setIsSearchingCovers] = useState(false)
   const [coverSearchResults, setCoverSearchResults] = useState([])
   const [showCoverSelector, setShowCoverSelector] = useState(false)
-  const [autoFetchEnabled, setAutoFetchEnabled] = useState(true)
   const [showAPISettings, setShowAPISettings] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Stable for the lifetime of one form entry; regenerated after each submit
@@ -59,36 +79,37 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
     }
   }, [formData.series, formData.issueNumber, existingComics])
 
-  // Auto-fetch covers when series and issue are filled
-  useEffect(() => {
-    if (autoFetchEnabled &&
-        formData.series &&
-        formData.issueNumber &&
-        !coverData &&
-        !isSearchingCovers &&
-        !showCoverSelector) {
-
-      // Debounce the search to avoid too many API calls
-      const searchTimeout = setTimeout(() => {
-        searchForCovers()
-      }, 1000)
-
-      return () => clearTimeout(searchTimeout)
-    }
-  }, [formData.series, formData.issueNumber, formData.publisher, autoFetchEnabled, coverData, isSearchingCovers, showCoverSelector])
+  const resetForm = () => {
+    setFormData(EMPTY_FORM)
+    setStep('find')
+    setShowRefine(false)
+    setSearchInputs(null)
+    setCreditsStatus(null)
+    setLibraryMatch(false)
+    setCoverData(null)
+    setCoverError(null)
+    setUploaderComicId(`form_${Date.now()}`)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (step === 'find') {
+      handleFind()
+      return
+    }
     if (!formData.series || !formData.issueNumber) {
       alert('Please fill in at least the series and issue number')
       return
     }
 
-    // Prepare comic data with cover information
+    // Prepare comic data with cover information; the creator inputs become credits
+    const { writers, artists, ...fields } = formData
     const comicData = {
-      ...formData,
+      ...fields,
+      credits: applyCreditFields(formData.credits, { writers, artists }),
       issueNumber: parseInt(formData.issueNumber) || formData.issueNumber
     }
+    if (!comicData.comicVineId) delete comicData.comicVineId
 
     // Add cover data if available
     if (coverData) {
@@ -105,22 +126,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
     try {
       setIsSubmitting(true)
       await onAdd(comicData)
-
-      // Reset form
-      setFormData({
-        series: '',
-        issueNumber: '',
-        publisher: '',
-        year: '',
-        month: '',
-        variant: '',
-        notes: '',
-        volumeId: '',
-        volumeName: ''
-      })
-      setCoverData(null)
-      setCoverError(null)
-      setUploaderComicId(`form_${Date.now()}`)
+      resetForm()
     } finally {
       setIsSubmitting(false)
     }
@@ -255,6 +261,42 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
     setCoverData(null)
   }
 
+  const handleFind = () => {
+    if (!formData.series || !formData.issueNumber) {
+      setCoverError('Enter the series and issue number first')
+      return
+    }
+    setSearchInputs(formData)
+    searchForCovers()
+  }
+
+  // A match was chosen: show the review step and fetch its creator credits.
+  // A failed credits lookup doesn't block adding the comic.
+  const handleMatched = async (comicVineId) => {
+    setStep('review')
+    if (!comicVineId) return
+    setFormData(prev => ({ ...prev, comicVineId: String(comicVineId) }))
+    setCreditsStatus('loading')
+    try {
+      const credits = await coverAPIService.fetchIssueCredits(comicVineId)
+      setFormData(prev => ({ ...prev, credits, ...creditsToFields(credits) }))
+      setCreditsStatus(null)
+    } catch (error) {
+      console.error('Credits lookup failed:', error)
+      setCreditsStatus('error')
+    }
+  }
+
+  // Back to the find step with the inputs from before the match
+  const handleChangeMatch = () => {
+    setFormData(searchInputs || formData)
+    setCoverData(null)
+    setCoverError(null)
+    setCreditsStatus(null)
+    setLibraryMatch(false)
+    setStep('find')
+  }
+
   // Search for covers using the Cover API service
   const searchForCovers = async () => {
     if (!formData.series || !formData.issueNumber) return
@@ -268,7 +310,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       // See docs/COVER_SEARCH_SYSTEM.md for details
       const { parseIssueForSearch } = await import('../utils/issueParser')
       const { series: searchSeries, issue: searchIssue } = parseIssueForSearch(formData.series, formData.issueNumber)
-      
+
       console.log('Searching for covers:', {
         series: searchSeries,
         issue: searchIssue,
@@ -289,19 +331,27 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       const lookupResult = lookupResponse.ok ? await lookupResponse.json() : null
 
       if (lookupResult?.metadata?.hasCover) {
-        console.log('Found existing shared cover, skipping ComicVine search:', lookupResult.metadata)
-        if (lookupResult.metadata.volumeName) {
-          setFormData(prev => ({
-            ...prev,
-            volumeId: lookupResult.metadata.volumeId || '',
-            volumeName: lookupResult.metadata.volumeName || ''
-          }))
+        const match = lookupResult.metadata
+        console.log('Found existing shared cover, skipping ComicVine search:', match)
+        // The cover is already saved on the shared record, so there's no
+        // coverData to upload; fill in what the existing comic knows.
+        setFormData(prev => ({
+          ...applyCoverMetadataToForm(prev, {
+            publisher: match.publisher,
+            year: match.year,
+            month: match.month,
+            volumeId: match.volumeId,
+            volumeName: match.volumeName
+          }),
+          ...(match.credits ? { credits: match.credits, ...creditsToFields(match.credits) } : {})
+        }))
+        setLibraryMatch(true)
+        if (match.comicVineId && !match.credits) {
+          await handleMatched(match.comicVineId)
+        } else {
+          if (match.comicVineId) setFormData(prev => ({ ...prev, comicVineId: String(match.comicVineId) }))
+          setStep('review')
         }
-        setCoverError(null)
-        // No coverData to upload (the cover is already saved on the shared
-        // metadata record) — stop the auto-fetch effect from retrying, since
-        // it only stops once coverData is set or auto-fetch is disabled.
-        setAutoFetchEnabled(false)
         return
       }
 
@@ -316,11 +366,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
       if (results.length === 0) {
         console.log('No covers found for', formData.series, formData.issueNumber)
-        setCoverError('No covers found for this comic. You can upload a cover manually.')
-        // Without this, the auto-fetch effect's guard (!coverData) stays
-        // satisfied forever and re-triggers the same failed search every
-        // second since coverData never gets set on this path.
-        setAutoFetchEnabled(false)
+        setCoverError('ComicVine has no match for this issue. Check the series name and issue number, or enter the details by hand.')
         return
       }
 
@@ -337,16 +383,10 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
       console.error('Cover search error:', error)
 
       if (error.message.includes('service is not available') || error.message.includes('backend server')) {
-        setCoverError('Cover search service is not available. Please ensure the backend server is running, or upload covers manually.')
-      } else if (error.message.includes('backend proxy') || error.message.includes('CORS')) {
-        setCoverError('Cover search requires a backend server. For now, you can upload covers manually using the upload button below.')
+        setCoverError('ComicVine search isn\'t available right now. You can enter the details by hand.')
       } else {
-        setCoverError(`Cover search failed: ${error.message}`)
+        setCoverError(`ComicVine search failed: ${error.message}`)
       }
-      // Same loop-prevention as the zero-results path above — a failed
-      // search never sets coverData, so auto-fetch must be disabled here
-      // too or the effect retries the same failing search every second.
-      setAutoFetchEnabled(false)
     } finally {
       setIsSearchingCovers(false)
     }
@@ -399,6 +439,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
       // Auto-populate volume, publisher, year and month fields in form
       setFormData(prev => applyCoverMetadataToForm(prev, coverResult.metadata))
+      await handleMatched(coverResult.id)
 
     } catch (error) {
       console.error('Error auto-selecting cover:', error)
@@ -439,6 +480,7 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
 
       // Auto-populate volume, publisher, year and month fields in form
       setFormData(prev => applyCoverMetadataToForm(prev, selectedCoverData.metadata))
+      await handleMatched(selectedCoverData.metadata?.apiId)
 
     } catch (error) {
       console.error('Error processing selected cover:', error)
@@ -454,212 +496,229 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
     setCoverSearchResults([])
   }
 
-  // Manual cover search trigger
-  const handleManualCoverSearch = () => {
-    if (!formData.series || !formData.issueNumber) {
-      setCoverError('Please enter series and issue number first')
-      return
-    }
-    searchForCovers()
+  const goToManual = () => {
+    setCoverError(null)
+    setStep('manual')
   }
 
-  // Toggle auto-fetch
-  const handleToggleAutoFetch = () => {
-    setAutoFetchEnabled(!autoFetchEnabled)
-  }
+  const busy = isSearchingCovers || isProcessingCover || isSubmitting
+
+  // ── Fields shared between steps ──
+  const seriesField = (
+    <div className="form-group">
+      <label htmlFor="series">Series *</label>
+      <div className="series-input-container">
+        <input
+          type="text"
+          id="series"
+          name="series"
+          value={formData.series}
+          onChange={handleChange}
+          onFocus={handleSeriesFocus}
+          onBlur={handleSeriesBlur}
+          placeholder="e.g., Amazing Spider-Man"
+          required
+          autoComplete="off"
+        />
+        {showSeriesDropdown && (
+          <div className="series-dropdown">
+            {filteredSeries.map((series, index) => (
+              <div
+                key={index}
+                className="series-option"
+                onClick={() => selectSeries(series)}
+              >
+                {series}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const issueField = (
+    <div className="form-group">
+      <label htmlFor="issueNumber">Issue Number *</label>
+      <input
+        type="text"
+        id="issueNumber"
+        name="issueNumber"
+        value={formData.issueNumber}
+        onChange={handleChange}
+        placeholder="e.g., 1, 1.1, Annual 1"
+        required
+      />
+    </div>
+  )
+
+  const publisherField = (
+    <div className="form-group">
+      <label htmlFor="publisher">Publisher</label>
+      <div className="publisher-input-container">
+        <input
+          type="text"
+          id="publisher"
+          name="publisher"
+          value={formData.publisher}
+          onChange={handleChange}
+          onFocus={handlePublisherFocus}
+          onBlur={handlePublisherBlur}
+          placeholder="e.g., Marvel, DC, Image"
+          autoComplete="off"
+        />
+        {showPublisherDropdown && (
+          <div className="publisher-dropdown">
+            {filteredPublishers.map((publisher, index) => (
+              <div
+                key={index}
+                className="publisher-option"
+                onClick={() => selectPublisher(publisher)}
+              >
+                {publisher}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const yearField = (
+    <div className="form-group">
+      <label htmlFor="year">Year</label>
+      <input
+        type="number"
+        id="year"
+        name="year"
+        value={formData.year}
+        onChange={handleChange}
+        placeholder="e.g., 2023"
+        min="1900"
+        max="2030"
+      />
+    </div>
+  )
+
+  const monthField = (
+    <div className="form-group">
+      <label htmlFor="month">Month</label>
+      <select id="month" name="month" value={formData.month} onChange={handleChange}>
+        <option value="">—</option>
+        {MONTH_NAMES.map((name, i) => (
+          <option key={name} value={String(i + 1)}>{name}</option>
+        ))}
+      </select>
+    </div>
+  )
+
+  const creatorFields = (
+    <>
+      <div className="form-group">
+        <label htmlFor="writers">Writer(s)</label>
+        <input
+          type="text"
+          id="writers"
+          name="writers"
+          value={formData.writers}
+          onChange={handleChange}
+          placeholder="Separate names with commas"
+        />
+      </div>
+      <div className="form-group">
+        <label htmlFor="artists">Artist(s)</label>
+        <input
+          type="text"
+          id="artists"
+          name="artists"
+          value={formData.artists}
+          onChange={handleChange}
+          placeholder="Separate names with commas"
+        />
+      </div>
+    </>
+  )
+
+  const variantAndNotes = (
+    <>
+      <div className="form-group">
+        <label htmlFor="variant">Variant/Cover</label>
+        <input
+          type="text"
+          id="variant"
+          name="variant"
+          value={formData.variant}
+          onChange={handleChange}
+          placeholder="e.g., Variant A, McFarlane Cover"
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="notes">Notes</label>
+        <textarea
+          id="notes"
+          name="notes"
+          value={formData.notes}
+          onChange={handleChange}
+          placeholder="Any additional notes..."
+          rows="3"
+        />
+      </div>
+    </>
+  )
+
+  const duplicateNotice = duplicateWarning && (
+    <div className="duplicate-warning">
+      <div className="warning-icon">⚠️</div>
+      <div className="warning-content">
+        <strong>Potential Duplicate Detected</strong>
+        <p>
+          A comic with the same series and issue number already exists:
+          <br />
+          <strong>"{duplicateWarning.series} #{duplicateWarning.issueNumber}"</strong>
+          <br />
+          <small>Added: {new Date(duplicateWarning.dateAdded).toLocaleDateString()}</small>
+        </p>
+        <p className="warning-note">
+          You can still add this comic, but you'll be asked to confirm.
+        </p>
+      </div>
+    </div>
+  )
+
+  const otherCredits = groupCredits(formData.credits).other
 
   return (
     <div className="comic-form">
       <h2>Add Comic to Collection</h2>
       <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="series">Series *</label>
-          <div className="series-input-container">
-            <input
-              type="text"
-              id="series"
-              name="series"
-              value={formData.series}
-              onChange={handleChange}
-              onFocus={handleSeriesFocus}
-              onBlur={handleSeriesBlur}
-              placeholder="e.g., Amazing Spider-Man"
-              required
-              autoComplete="off"
-            />
-            {showSeriesDropdown && (
-              <div className="series-dropdown">
-                {filteredSeries.map((series, index) => (
-                  <div
-                    key={index}
-                    className="series-option"
-                    onClick={() => selectSeries(series)}
-                  >
-                    {series}
-                  </div>
-                ))}
+        {step === 'find' && (
+          <>
+            <p className="form-step-intro">
+              Enter the series and issue number, and we'll fill in the rest from ComicVine.
+            </p>
+            {seriesField}
+            {issueField}
+
+            <button
+              type="button"
+              className="link-button refine-toggle"
+              aria-expanded={showRefine}
+              onClick={() => setShowRefine(open => !open)}
+            >
+              {showRefine ? '▾' : '▸'} Narrow it down (year, publisher)
+            </button>
+            {showRefine && (
+              <div className="refine-fields">
+                {yearField}
+                {publisherField}
               </div>
             )}
-          </div>
-        </div>
 
-        <div className="form-group">
-          <label htmlFor="issueNumber">Issue Number *</label>
-          <input
-            type="text"
-            id="issueNumber"
-            name="issueNumber"
-            value={formData.issueNumber}
-            onChange={handleChange}
-            placeholder="e.g., 1, 1.1, Annual 1"
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="publisher">Publisher</label>
-          <div className="publisher-input-container">
-            <input
-              type="text"
-              id="publisher"
-              name="publisher"
-              value={formData.publisher}
-              onChange={handleChange}
-              onFocus={handlePublisherFocus}
-              onBlur={handlePublisherBlur}
-              placeholder="e.g., Marvel, DC, Image"
-              autoComplete="off"
-            />
-            {showPublisherDropdown && (
-              <div className="publisher-dropdown">
-                {filteredPublishers.map((publisher, index) => (
-                  <div
-                    key={index}
-                    className="publisher-option"
-                    onClick={() => selectPublisher(publisher)}
-                  >
-                    {publisher}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="year">Year</label>
-          <input
-            type="number"
-            id="year"
-            name="year"
-            value={formData.year}
-            onChange={handleChange}
-            placeholder="e.g., 2023"
-            min="1900"
-            max="2030"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="month">Month</label>
-          <select id="month" name="month" value={formData.month} onChange={handleChange}>
-            <option value="">—</option>
-            {MONTH_NAMES.map((name, i) => (
-              <option key={name} value={String(i + 1)}>{name}</option>
-            ))}
-          </select>
-        </div>
-
-        {formData.volumeName && (
-          <div className="form-group volume-info">
-            <label htmlFor="volumeName">Volume (from ComicVine)</label>
-            <input
-              type="text"
-              id="volumeName"
-              name="volumeName"
-              value={formData.volumeName}
-              readOnly
-              className="readonly-field"
-              title={`Volume ID: ${formData.volumeId || 'N/A'}`}
-            />
-            <small className="field-hint">Auto-populated from cover search</small>
-          </div>
-        )}
-
-        <div className="form-group">
-          <label htmlFor="variant">Variant/Cover</label>
-          <input
-            type="text"
-            id="variant"
-            name="variant"
-            value={formData.variant}
-            onChange={handleChange}
-            placeholder="e.g., Variant A, McFarlane Cover"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="notes">Notes</label>
-          <textarea
-            id="notes"
-            name="notes"
-            value={formData.notes}
-            onChange={handleChange}
-            placeholder="Any additional notes..."
-            rows="3"
-          />
-        </div>
-
-        <div className="form-group">
-          <div className="cover-section">
-            <div className="cover-section-header">
-              <label>Cover Image</label>
-              <div className="cover-controls">
-                <label className="auto-fetch-toggle">
-                  <input
-                    type="checkbox"
-                    checked={autoFetchEnabled}
-                    onChange={handleToggleAutoFetch}
-                  />
-                  <span>Auto-fetch covers</span>
-                </label>
-                {formData.series && formData.issueNumber && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleManualCoverSearch}
-                      className="search-covers-btn"
-                      disabled={isSearchingCovers || isProcessingCover || isSubmitting}
-                    >
-                      {isSearchingCovers ? 'Searching...' : '🔍 Search Covers'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAPISettings(true)}
-                      className="settings-btn"
-                      title="Configure API Settings"
-                      disabled={isSubmitting}
-                    >
-                      ⚙️
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <CoverUploader
-              comicId={uploaderComicId}
-              onUploadComplete={handleCoverUploadComplete}
-              onUploadError={handleCoverUploadError}
-              currentCover={coverData?.previewUrl}
-              currentCoverData={coverData}
-              disabled={isProcessingCover || isSearchingCovers}
-            />
-
-            {isSearchingCovers && (
+            {(isSearchingCovers || isProcessingCover) && (
               <div className="cover-searching">
                 <span className="searching-icon">🔍</span>
-                <span>Searching for covers...</span>
+                <span>{isProcessingCover ? 'Getting the cover…' : 'Searching ComicVine…'}</span>
               </div>
             )}
 
@@ -670,47 +729,120 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
               </div>
             )}
 
-            {coverData && (
-              <div className="cover-success">
-                <span className="success-icon">✅</span>
-                <span>
-                  Cover {coverData.metadata?.source === 'api' ? 'downloaded' : 'processed'} successfully
-                  {coverData.metadata?.providerName && (
-                    <span className="cover-provider"> from {coverData.metadata.providerName}</span>
-                  )}
-                </span>
-                {coverData.metadata?.totalStorageSize && (
-                  <span className="cover-size">
-                    ({(coverData.metadata.totalStorageSize / 1024).toFixed(1)} KB)
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+            {duplicateNotice}
 
-        {duplicateWarning && (
-          <div className="duplicate-warning">
-            <div className="warning-icon">⚠️</div>
-            <div className="warning-content">
-              <strong>Potential Duplicate Detected</strong>
-              <p>
-                A comic with the same series and issue number already exists:
-                <br />
-                <strong>"{duplicateWarning.series} #{duplicateWarning.issueNumber}"</strong>
-                <br />
-                <small>Added: {new Date(duplicateWarning.dateAdded).toLocaleDateString()}</small>
-              </p>
-              <p className="warning-note">
-                You can still add this comic, but you'll be asked to confirm.
-              </p>
+            <div className="form-step-actions">
+              <button type="submit" className="submit-btn" disabled={busy}>
+                {isSearchingCovers ? 'Searching…' : 'Find on ComicVine'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAPISettings(true)}
+                className="settings-btn"
+                title="Configure API Settings"
+                disabled={isSubmitting}
+              >
+                ⚙️
+              </button>
             </div>
-          </div>
+            <button type="button" className="link-button" onClick={goToManual}>
+              No match? Enter details by hand
+            </button>
+          </>
         )}
 
-        <button type="submit" className="submit-btn" disabled={isSubmitting || isSearchingCovers || isProcessingCover}>
-          {isSubmitting ? 'Saving Comic...' : 'Add to Collection'}
-        </button>
+        {step === 'review' && (
+          <>
+            <div className="match-card">
+              {coverData?.previewUrl ? (
+                <img className="match-cover" src={coverData.previewUrl} alt={`${formData.series} #${formData.issueNumber} cover`} />
+              ) : (
+                <div className="match-cover match-cover--placeholder" aria-hidden="true">📚</div>
+              )}
+              <div className="match-details">
+                <strong className="match-title">{formData.series} #{formData.issueNumber}</strong>
+                {(formData.volumeName || formData.year) && (
+                  <span className="match-meta">
+                    {formData.volumeName}{formData.volumeName && formData.year ? ' · ' : ''}{formData.year}
+                  </span>
+                )}
+                {libraryMatch && <span className="match-meta">Cover already in the library</span>}
+                <button type="button" className="link-button" onClick={handleChangeMatch} disabled={busy}>
+                  Change match
+                </button>
+              </div>
+            </div>
+
+            {publisherField}
+            <div className="form-row">
+              {yearField}
+              {monthField}
+            </div>
+            {creatorFields}
+            {creditsStatus === 'loading' && (
+              <p className="credits-note">Looking up creators on ComicVine…</p>
+            )}
+            {creditsStatus === 'error' && (
+              <p className="credits-note">Couldn't get creators from ComicVine. You can type them in, or leave them blank.</p>
+            )}
+            {otherCredits.length > 0 && (
+              <p className="also-credited">
+                Also credited: {otherCredits.map(({ label, names }) => `${label} ${names.join(', ')}`).join(' · ')}
+              </p>
+            )}
+            {variantAndNotes}
+            {duplicateNotice}
+
+            <button type="submit" className="submit-btn" disabled={busy || creditsStatus === 'loading'}>
+              {isSubmitting ? 'Saving Comic...' : 'Add to collection'}
+            </button>
+          </>
+        )}
+
+        {step === 'manual' && (
+          <>
+            <button type="button" className="link-button" onClick={() => setStep('find')}>
+              ← Back to search
+            </button>
+            {seriesField}
+            {issueField}
+            {publisherField}
+            <div className="form-row">
+              {yearField}
+              {monthField}
+            </div>
+            {creatorFields}
+            {variantAndNotes}
+
+            <div className="form-group">
+              <div className="cover-section">
+                <div className="cover-section-header">
+                  <label>Cover Image</label>
+                </div>
+                <CoverUploader
+                  comicId={uploaderComicId}
+                  onUploadComplete={handleCoverUploadComplete}
+                  onUploadError={handleCoverUploadError}
+                  currentCover={coverData?.previewUrl}
+                  currentCoverData={coverData}
+                  disabled={isProcessingCover}
+                />
+                {coverError && (
+                  <div className="cover-error">
+                    <span className="error-icon">⚠️</span>
+                    <span>{coverError}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {duplicateNotice}
+
+            <button type="submit" className="submit-btn" disabled={busy}>
+              {isSubmitting ? 'Saving Comic...' : 'Add to collection'}
+            </button>
+          </>
+        )}
       </form>
 
       <CoverSelector

@@ -82,7 +82,9 @@ See [Deployment Architecture](docs/DEPLOYMENT_ARCHITECTURE.md) for details.
 
 ### Adding Comics
 
-**Single Comic**: Use the "Add Comic" tab to add individual comics with details like series, issue number, publisher, year, month, variant, and notes. When you pick a cover from ComicVine search, empty Publisher, Year and Month fields are filled in from the result (Month only if it belongs to the comic's year), and the ComicVine volume is recorded.
+**Single Comic**: On the "Add Comic" tab, enter the series and issue number (optionally narrow it down with year and publisher) and choose **Find on ComicVine**. If there are several matches you pick the right cover; then publisher, year, month, volume, writers and artists are filled in from ComicVine for you to check before adding. Comics ComicVine doesn't have can be entered by hand.
+
+**Creator credits**: Comics store their full ComicVine credits (writer, pencils, inks, colors, letters, editor, cover). Writers and artists show in the comic's details, the rest in a smaller line, and writers and artists can be edited there. Existing comics with a ComicVine ID fetch their credits the first time you open them.
 
 **Bulk Import**: Use the "Bulk Import" tab for multiple comics:
 - **Text Import**: Paste a list of comics in these formats:

@@ -35,7 +35,7 @@ Two new optional fields added to comics:
 1. **Cover Search**: When searching for covers via ComicVine, the API now returns `volumeId` and `volumeName` in the metadata
 2. **Auto-Population**: When a cover is selected (either auto-selected or manually chosen), the volume fields are automatically populated in the form. An empty Publisher field is also filled from the result's `volume.publisher.name` (COM-46); a publisher the user already typed is kept. An empty Year field is filled the same way from the issue's cover-date year (COM-50), and an empty Month from the cover-date month when the year matches (COM-51)
 3. **Storage**: Volume information is saved to MongoDB along with other comic metadata
-4. **Display**: Volume info is shown as a read-only field in the Add Comic form when available
+4. **Display**: Volume and year are shown on the match card in the Add Comic form's review step
 
 ### API Changes
 
@@ -67,10 +67,10 @@ Two new optional fields added to comics:
 
 When adding a comic:
 
-1. Enter series, issue number, publisher, and year as usual (publisher, year and month can be left blank)
-2. Search for or upload a cover
-3. If a cover is found via ComicVine, the volume field will automatically appear showing the volume name, and blank Publisher, Year and Month fields are filled in from ComicVine
-4. The volume information is saved with the comic
+1. Enter the series and issue number (optionally year and publisher under "Narrow it down") and choose **Find on ComicVine**
+2. Pick the right cover if there are several matches
+3. The review step shows the match's volume, with Publisher, Year, Month and creator credits filled in from ComicVine (COM-55)
+4. The volume information is saved with the comic. Comics ComicVine doesn't have go through "Enter details by hand" and have no volume
 
 ### For Developers
 
