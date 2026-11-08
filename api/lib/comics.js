@@ -59,6 +59,25 @@ function toFlatComic(doc) {
   }
 }
 
+/**
+ * Cover GC (scripts/gc-cover-assets.js) deletes an orphaned asset's record,
+ * then re-checks for comics pointing at it before deleting its images. A
+ * writer that read the asset earlier but saves its pointer after that
+ * re-check would leave a comic pointing at deleted images. So whenever an
+ * existing asset is attached, confirm its record still exists afterwards and
+ * clear the pointer if it doesn't — every interleaving then ends either with
+ * GC seeing the pointer (and restoring the asset) or with no pointer.
+ */
+async function confirmAttachedAssetExists(db, comicId, assetId) {
+  const asset = await db.collection('coverAssets').findOne({ _id: assetId }, { projection: { _id: 1 } })
+  if (asset) return true
+  await db.collection('comics').updateOne(
+    { _id: comicId, coverAssetId: assetId },
+    { $set: { coverAssetId: null, hasCover: false, updatedAt: new Date().toISOString() } }
+  )
+  return false
+}
+
 export async function addComic(db, { userId, comic }) {
   const collection = db.collection('comics')
   const identityKey = buildIdentityKey(comic)
@@ -87,6 +106,10 @@ export async function addComic(db, { userId, comic }) {
 
   try {
     const result = await collection.insertOne(doc)
+    if (existingAsset && !(await confirmAttachedAssetExists(db, result.insertedId, existingAsset._id))) {
+      doc.coverAssetId = null
+      doc.hasCover = false
+    }
     return toFlatComic({ ...doc, _id: result.insertedId })
   } catch (error) {
     if (error.code === MONGO_DUPLICATE_KEY_ERROR) {
@@ -156,6 +179,7 @@ export async function updateComic(db, { userId, comicId, updates }) {
     }
     throw error
   }
+  if (set.coverAssetId) await confirmAttachedAssetExists(db, existing._id, set.coverAssetId)
 
   const updated = await collection.findOne({ _id: existing._id, userId })
   return toFlatComic(updated)
@@ -175,7 +199,8 @@ export async function attachCoverAsset(db, { userId, comicId, assetId }) {
     { _id: new ObjectId(comicId), userId },
     { $set: { coverAssetId: new ObjectId(assetId), hasCover: true, updatedAt: new Date().toISOString() } }
   )
-  return result.matchedCount === 1
+  if (result.matchedCount !== 1) return false
+  return confirmAttachedAssetExists(db, new ObjectId(comicId), new ObjectId(assetId))
 }
 
 export async function detachCover(db, { userId, comicId }) {

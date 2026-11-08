@@ -22,6 +22,10 @@ import { ObjectId } from 'mongodb'
  * identityKey. Deleting the asset record first means nothing new can find
  * it; re-checking references afterwards catches a comic that grabbed it in
  * between, and the record is put back. Images are only deleted after that.
+ * A writer that read the asset before the delete but saves its pointer after
+ * the re-check is handled on the writer's side: every attach of an existing
+ * asset confirms the record still exists and clears the pointer if not
+ * (confirmAttachedAssetExists in api/lib/comics.js).
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000

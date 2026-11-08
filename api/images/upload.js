@@ -112,9 +112,15 @@ export default async function handler(req, res) {
     if (!isReplacement && metadata?.source === 'api') {
       const lookupKey = comicVineIdentityKey || comic.identityKey
       const existingSharedAsset = await findAssetByIdentityKey(database, lookupKey)
-      if (existingSharedAsset) {
-        console.log(`[Upload] Reusing existing shared asset for identity: ${comic.identityKey}`)
+      // attachCoverAsset is false if cover cleanup deleted the asset after
+      // the lookup; then store this upload as a new asset instead.
+      const attached = existingSharedAsset &&
         await attachCoverAsset(database, { userId: req.userId, comicId, assetId: existingSharedAsset._id })
+      if (existingSharedAsset && !attached) {
+        console.log(`[Upload] Shared asset for ${lookupKey} disappeared while attaching; storing this upload instead`)
+      }
+      if (attached) {
+        console.log(`[Upload] Reusing existing shared asset for identity: ${comic.identityKey}`)
 
         const reuseIdentityUpgrade = comicVineIdentityKey && !comic.comicVineId
           ? { comicVineId: metadata.apiId, identityKey: comicVineIdentityKey }

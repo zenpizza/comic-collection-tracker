@@ -253,3 +253,77 @@ describe('updateComic with foreign/absent id', () => {
     ).rejects.toThrow("not found")
   })
 })
+
+describe('attaching a cover asset that cover GC deletes mid-write (COM-45)', () => {
+  let db, stop
+
+  beforeAll(async () => {
+    const testDb = await startTestDb()
+    db = testDb.db
+    stop = testDb.stop
+    await ensureIndexes(db)
+    await ensureAssetIndexes(db)
+  })
+
+  afterAll(async () => { await stop() })
+
+  // A db whose comics `method` first runs `between` — standing in for cover GC
+  // deleting the asset after the writer looked it up but before it saved.
+  const pausingBefore = (method, between) => ({
+    collection(name) {
+      const real = db.collection(name)
+      if (name !== 'comics') return real
+      return new Proxy(real, {
+        get(target, prop) {
+          if (prop === method) return async (...args) => { await between(); return target[method](...args) }
+          const value = target[prop]
+          return typeof value === 'function' ? value.bind(target) : value
+        },
+      })
+    },
+  })
+
+  it('addComic clears the cover pointer if the reused asset is deleted before the insert', async () => {
+    const metadata = { series: 'Black Panther', issueNumber: '1', publisher: 'Marvel', year: 1988 }
+    const asset = await createAsset(db, { identityKey: buildIdentityKey(metadata) })
+    const gcDeletesAsset = () => db.collection('coverAssets').deleteOne({ _id: asset._id })
+
+    const comic = await addComic(pausingBefore('insertOne', gcDeletesAsset), { userId: 'user_gc1', comic: metadata })
+
+    expect(comic).toMatchObject({ coverAssetId: null, hasCover: false })
+    const stored = await getComic(db, { userId: 'user_gc1', comicId: comic.id })
+    expect(stored).toMatchObject({ coverAssetId: null, hasCover: false })
+  })
+
+  it('addComic keeps the pointer when the asset survives', async () => {
+    const metadata = { series: 'Black Panther', issueNumber: '2', publisher: 'Marvel', year: 1988 }
+    const asset = await createAsset(db, { identityKey: buildIdentityKey(metadata) })
+
+    const comic = await addComic(db, { userId: 'user_gc2', comic: metadata })
+
+    expect(comic).toMatchObject({ coverAssetId: asset._id.toString(), hasCover: true })
+  })
+
+  it('updateComic clears an adopted cover pointer if that asset is deleted before the update', async () => {
+    const comic = await addComic(db, { userId: 'user_gc3', comic: { series: 'Thor', issueNumber: '337', publisher: 'Marvel', year: 1983 } })
+    const target = { series: 'Thor', issueNumber: '338', publisher: 'Marvel', year: 1983 }
+    const asset = await createAsset(db, { identityKey: buildIdentityKey(target) })
+    const gcDeletesAsset = () => db.collection('coverAssets').deleteOne({ _id: asset._id })
+
+    const updated = await updateComic(pausingBefore('updateOne', gcDeletesAsset), {
+      userId: 'user_gc3', comicId: comic.id, updates: { issueNumber: '338' },
+    })
+
+    expect(updated).toMatchObject({ issueNumber: '338', coverAssetId: null, hasCover: false })
+  })
+
+  it('attachCoverAsset reports failure and leaves no pointer for a deleted asset', async () => {
+    const comic = await addComic(db, { userId: 'user_gc4', comic: { series: 'Rom', issueNumber: '1', publisher: 'Marvel', year: 1979 } })
+    const goneAssetId = new ObjectId()
+
+    const attached = await attachCoverAsset(db, { userId: 'user_gc4', comicId: comic.id, assetId: goneAssetId })
+
+    expect(attached).toBe(false)
+    expect(await getComic(db, { userId: 'user_gc4', comicId: comic.id })).toMatchObject({ coverAssetId: null, hasCover: false })
+  })
+})
