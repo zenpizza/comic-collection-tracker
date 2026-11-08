@@ -44,7 +44,11 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
   latestComic.current = comic
   const creditsRequested = useRef(new Set())
   const mounted = useRef(true)
-  useEffect(() => () => { mounted.current = false }, [])
+  // Set on setup too: StrictMode runs setup → cleanup → setup on mount
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   // Comics with a ComicVine id get their creator credits the first time
   // they're opened (COM-55): one lookup, saved — [] when ComicVine has none,
@@ -60,11 +64,19 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
         if (!mounted.current) return
         const current = latestComic.current
         if (current.id !== comic.id) return
+        // Creators saved by hand while the lookup was running win
+        if (current.credits !== null && current.credits !== undefined) return
         // Save onto the latest version, so an edit saved meanwhile isn't undone
         onSave({ ...current, credits })
-        // An open edit form started with blank creators; fill them in unless
-        // they've been typed in, or saving the form would wipe the credits
-        setEditForm(prev => (prev.writers || prev.artists) ? prev : { ...prev, ...creditsToFields(credits) })
+        // An open edit form started with blank creator inputs. Fill each one
+        // that's still blank, or saving the form would wipe those credits;
+        // keep whatever has been typed.
+        const fetched = creditsToFields(credits)
+        setEditForm(prev => ({
+          ...prev,
+          writers: prev.writers || fetched.writers,
+          artists: prev.artists || fetched.artists,
+        }))
       })
       .catch((error) => console.warn('Could not fetch creator credits:', error.message))
       .finally(() => { if (mounted.current) setLoadingCredits(false) })

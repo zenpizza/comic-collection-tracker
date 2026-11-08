@@ -132,6 +132,56 @@ describe('ComicDetailView creator credits (COM-55)', () => {
     expect(saved.find((c) => c.name === 'George Roussos').roles).toEqual(['colorist'])
   })
 
+  it('fills only the creator inputs not typed in when credits arrive mid-edit', async () => {
+    let resolve
+    coverAPIService.fetchIssueCredits.mockReturnValue(new Promise((r) => { resolve = r }))
+    const onSave = vi.fn()
+    render(<Harness onSave={onSave} initialComic={{ ...base, comicVineId: '25171', credits: null }} />)
+
+    fireEvent.click(screen.getByText('Edit Details'))
+    const [writersInput, artistsInput] = screen.getAllByPlaceholderText('Separate names with commas')
+    fireEvent.change(writersInput, { target: { value: 'Christopher Priest' } })
+    resolve(credits)
+    await waitFor(() => expect(artistsInput.value).toBe('Herb Trimpe, Jim Mooney'))
+    expect(writersInput.value).toBe('Christopher Priest')
+    fireEvent.click(screen.getByText('Save Changes'))
+
+    const saved = onSave.mock.calls.at(-1)[0].credits
+    expect(saved.find((c) => c.name === 'Christopher Priest').roles).toEqual(['writer'])
+    expect(saved.find((c) => c.name === 'Herb Trimpe').roles).toEqual(['artist', 'penciler'])
+    expect(saved.find((c) => c.name === 'Jim Mooney').roles).toEqual(['inker'])
+  })
+
+  it('does not overwrite creators saved by hand before the lookup finishes', async () => {
+    let resolve
+    coverAPIService.fetchIssueCredits.mockReturnValue(new Promise((r) => { resolve = r }))
+    const onSave = vi.fn()
+    render(<Harness onSave={onSave} initialComic={{ ...base, comicVineId: '25171', credits: null }} />)
+
+    fireEvent.click(screen.getByText('Edit Details'))
+    fireEvent.change(screen.getAllByPlaceholderText('Separate names with commas')[0], { target: { value: 'Christopher Priest' } })
+    fireEvent.click(screen.getByText('Save Changes'))
+    resolve(credits)
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.calls[0][0].credits).toEqual([{ name: 'Christopher Priest', roles: ['writer'] }])
+  })
+
+  it('saves fetched credits under React StrictMode (double effect run on mount)', async () => {
+    coverAPIService.fetchIssueCredits.mockResolvedValue(credits)
+    const onSave = vi.fn()
+    render(
+      <React.StrictMode>
+        <Harness onSave={onSave} initialComic={{ ...base, comicVineId: '25171', credits: null }} />
+      </React.StrictMode>
+    )
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    expect(onSave.mock.calls[0][0].credits).toEqual(credits)
+    await waitFor(() => expect(screen.queryByText('Looking up creators…')).toBeNull())
+  })
+
   it('credits arriving while the edit form is open are kept when it is saved', async () => {
     let resolve
     coverAPIService.fetchIssueCredits.mockReturnValue(new Promise((r) => { resolve = r }))
