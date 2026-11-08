@@ -47,3 +47,6 @@ docker-compose.override.yml
 
 # Backfill state (contains collection data)
 .backfill/
+
+# Cover GC backups (contain collection data and cover images)
+.gc/
