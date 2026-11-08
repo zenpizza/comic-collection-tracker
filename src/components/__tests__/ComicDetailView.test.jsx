@@ -182,6 +182,42 @@ describe('ComicDetailView creator credits (COM-55)', () => {
     await waitFor(() => expect(screen.queryByText('Looking up creators…')).toBeNull())
   })
 
+  it('keeps fetched credits when Edit Details is opened before their save finishes', async () => {
+    coverAPIService.fetchIssueCredits.mockResolvedValue(credits)
+    // Like the real collection view: the comic prop only updates after the
+    // save round-trip (database write + reload) completes
+    const saves = []
+    function SlowSaveHarness({ initialComic }) {
+      const [comic, setComic] = React.useState(initialComic)
+      return (
+        <ComicDetailView
+          comic={comic}
+          comics={[comic]}
+          onClose={() => {}}
+          onDelete={() => {}}
+          onSave={(updated) => new Promise((done) => saves.push(() => { setComic(updated); done() }))}
+        />
+      )
+    }
+    render(<SlowSaveHarness initialComic={{ ...base, comicVineId: '25171', credits: null }} />)
+
+    await waitFor(() => expect(saves).toHaveLength(1)) // lookup done, its save in flight
+    fireEvent.click(screen.getByText('Edit Details')) // form built from the not-yet-updated comic
+    await React.act(async () => { saves[0]() }) // the save lands
+
+    const [writersInput, artistsInput] = screen.getAllByPlaceholderText('Separate names with commas')
+    expect(writersInput.value).toBe('Al Milgrom')
+    expect(artistsInput.value).toBe('Herb Trimpe, Jim Mooney')
+
+    fireEvent.change(screen.getByPlaceholderText(/Add any notes/), { target: { value: 'Signed' } })
+    fireEvent.click(screen.getByText('Save Changes'))
+    await waitFor(() => expect(saves).toHaveLength(2))
+    // The second save is the edit: credits intact
+    await React.act(async () => { saves[1]() })
+    expect(screen.getByText('Al Milgrom')).toBeTruthy()
+    expect(screen.getByText('Herb Trimpe (pencils), Jim Mooney (inks)')).toBeTruthy()
+  })
+
   it('credits arriving while the edit form is open are kept when it is saved', async () => {
     let resolve
     coverAPIService.fetchIssueCredits.mockReturnValue(new Promise((r) => { resolve = r }))

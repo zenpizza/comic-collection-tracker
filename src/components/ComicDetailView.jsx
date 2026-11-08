@@ -66,21 +66,33 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
         if (current.id !== comic.id) return
         // Creators saved by hand while the lookup was running win
         if (current.credits !== null && current.credits !== undefined) return
-        // Save onto the latest version, so an edit saved meanwhile isn't undone
+        // Save onto the latest version, so an edit saved meanwhile isn't undone.
+        // An open edit form picks the credits up when the saved comic comes
+        // back (see the comic.credits effect below).
         onSave({ ...current, credits })
-        // An open edit form started with blank creator inputs. Fill each one
-        // that's still blank, or saving the form would wipe those credits;
-        // keep whatever has been typed.
-        const fetched = creditsToFields(credits)
-        setEditForm(prev => ({
-          ...prev,
-          writers: prev.writers || fetched.writers,
-          artists: prev.artists || fetched.artists,
-        }))
       })
       .catch((error) => console.warn('Could not fetch creator credits:', error.message))
       .finally(() => { if (mounted.current) setLoadingCredits(false) })
   }, [comic.id, comic.comicVineId, comic.credits])
+
+  // Creator text the edit form started from. Only inputs changed from this
+  // are applied on save, so credits that land while the form is open (the
+  // lookup, or its save completing after Edit Details was clicked) are never
+  // wiped by inputs the user didn't touch.
+  const creatorFieldsAtStart = useRef(creditsToFields(comic.credits))
+
+  // Keep untouched creator inputs in step with the comic's credits
+  useEffect(() => {
+    if (!isEditing) return
+    const start = creatorFieldsAtStart.current
+    const next = creditsToFields(comic.credits)
+    creatorFieldsAtStart.current = next
+    setEditForm(prev => ({
+      ...prev,
+      writers: prev.writers === start.writers ? next.writers : prev.writers,
+      artists: prev.artists === start.artists ? next.artists : prev.artists,
+    }))
+  }, [comic.credits])
 
   useEffect(() => {
     // Close dropdowns when clicking outside
@@ -131,10 +143,16 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
     }
 
     const { writers, artists, ...fields } = editForm
+    const start = creatorFieldsAtStart.current
+    // Only creator inputs the user changed are applied (undefined = leave as is)
+    const changedCreators = {
+      writers: writers !== start.writers ? writers : undefined,
+      artists: artists !== start.artists ? artists : undefined,
+    }
     const updatedComic = {
       ...comic,
       ...fields,
-      credits: applyCreditFields(comic.credits, { writers, artists }),
+      credits: applyCreditFields(comic.credits, changedCreators),
       issueNumber: parseInt(editForm.issueNumber) || editForm.issueNumber
     }
 
@@ -143,11 +161,13 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
   }
 
   const handleStartEdit = () => {
+    creatorFieldsAtStart.current = creditsToFields(comic.credits)
     setEditForm(editFormFromComic(comic))
     setIsEditing(true)
   }
 
   const handleCancel = () => {
+    creatorFieldsAtStart.current = creditsToFields(comic.credits)
     setEditForm(editFormFromComic(comic))
     setIsEditing(false)
   }
