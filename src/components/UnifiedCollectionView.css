@@ -60,10 +60,16 @@
 }
 
 /* ── Two-panel body ── */
+/* Height comes from useFillViewportHeight so the panels fill the window and
+   scroll separately; the floor keeps them usable on very short windows.
+   flex: none, not flex: 1 — .ucv is a column flex container without a set
+   height, so flex: 1's 0% basis falls back to content size and overrides
+   `height`, letting the body grow with the title list again. */
 .ucv__body {
   display: flex;
-  flex: 1;
-  min-height: 560px;
+  flex: none;
+  height: var(--ucv-body-height, auto);
+  min-height: 420px;
   overflow: hidden;
   position: relative;
 }
@@ -450,6 +456,8 @@
   }
 
   .ucv__body {
+    /* Phones: the title list is a drawer, so let the page scroll as usual */
+    height: auto;
     min-height: 400px;
   }
 
