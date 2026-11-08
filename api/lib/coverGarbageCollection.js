@@ -7,7 +7,9 @@ import { ObjectId } from 'mongodb'
  * A cover is stored as a coverAssets record, a cover_images record keyed by
  * the asset id (its `comicId` field holds the asset id), and S3 files under
  * <prefix>/covers/<assetId>/. Comics point at an asset via coverAssetId.
- * Three kinds of orphan:
+ * (A cover_images record a comic points to but with no coverAssets record is
+ * not an orphan: it's a dangling pointer to repair, and is reported, never
+ * deleted.) Three kinds of orphan:
  *   - asset:  coverAssets record no comic points to (left by deletes and
  *             cover replacements, which never delete synchronously).
  *   - stray:  cover_images record with no coverAssets record (pre-migration
@@ -29,6 +31,7 @@ import { ObjectId } from 'mongodb'
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const MONGO_DUPLICATE_KEY_ERROR = 11000
 
 const s3KeysOf = (imagesDoc) =>
   Object.values(imagesDoc?.images || {}).map((ref) => ref?.key).filter(Boolean)
@@ -66,8 +69,14 @@ export async function findOrphans(db, { graceDays = 30, now = Date.now(), storag
       }
     })
 
-  const strays = images
-    .filter((doc) => !assetIds.has(String(doc.comicId)))
+  const withoutAsset = images.filter((doc) => !assetIds.has(String(doc.comicId)))
+  // A comic still points at these images, so they aren't orphans
+  const dangling = withoutAsset
+    .filter((doc) => referenced.has(String(doc.comicId)))
+    .map((doc) => ({ kind: 'dangling', id: String(doc._id), imagesKey: doc.comicId, s3Keys: s3KeysOf(doc) }))
+
+  const strays = withoutAsset
+    .filter((doc) => !referenced.has(String(doc.comicId)))
     .map((doc) => ({
       kind: 'stray',
       id: String(doc._id),
@@ -97,7 +106,7 @@ export async function findOrphans(db, { graceDays = 30, now = Date.now(), storag
       }))
   }
 
-  return { orphanAssets, strays, s3Orphans, graceDays }
+  return { orphanAssets, strays, dangling, s3Orphans, graceDays }
 }
 
 /**
@@ -135,11 +144,16 @@ export async function deleteOrphans(db, {
       const outcome = await deleteOrphanAsset(db, orphan, storage, backup)
       ;(outcome.deleted ? result.deleted : result.skipped).push({ ...orphan, reason: outcome.reason })
     } else if (orphan.kind === 'stray') {
-      // A coverAssets record may have appeared since (upload finishing)
-      const nowHasAsset = ObjectId.isValid(String(orphan.imagesKey)) &&
-        await db.collection('coverAssets').findOne({ _id: new ObjectId(String(orphan.imagesKey)) })
-      if (nowHasAsset) {
+      // A coverAssets record may have appeared since (upload finishing), or
+      // a comic may now point at these images
+      const key = String(orphan.imagesKey)
+      const keyAsId = ObjectId.isValid(key) ? new ObjectId(key) : null
+      if (keyAsId && await db.collection('coverAssets').findOne({ _id: keyAsId })) {
         result.skipped.push({ ...orphan, reason: 'now has a coverAssets record' })
+        continue
+      }
+      if (keyAsId && await db.collection('comics').findOne({ coverAssetId: keyAsId })) {
+        result.skipped.push({ ...orphan, reason: 'a comic points to it now' })
         continue
       }
       await backup(orphan)
@@ -178,13 +192,26 @@ async function deleteOrphanAsset(db, orphan, storage, backup) {
   await db.collection('coverAssets').deleteOne({ _id: assetId })
   // ...then catch any comic that attached it in the meantime.
   if (await comics.findOne({ coverAssetId: assetId })) {
-    await db.collection('coverAssets').insertOne(orphan.asset)
-    return { deleted: false, reason: 'a comic attached it during cleanup; record restored' }
+    return restoreAsset(db, orphan.asset)
   }
 
   await db.collection('cover_images').deleteOne({ comicId: String(assetId) })
   if (orphan.s3Keys.length) await storage.deleteKeys(orphan.s3Keys)
   return { deleted: true }
+}
+
+// Put back an asset a comic attached during cleanup. If an upload claimed its
+// identityKey in the meantime (unique index), restore it as a private asset
+// so the comic's cover keeps working.
+async function restoreAsset(db, asset) {
+  try {
+    await db.collection('coverAssets').insertOne(asset)
+    return { deleted: false, reason: 'a comic attached it during cleanup; record restored' }
+  } catch (error) {
+    if (error.code !== MONGO_DUPLICATE_KEY_ERROR || !asset.identityKey) throw error
+    await db.collection('coverAssets').insertOne({ ...asset, identityKey: null })
+    return { deleted: false, reason: 'a comic attached it during cleanup; restored as private (its identity was claimed meanwhile)' }
+  }
 }
 
 /**

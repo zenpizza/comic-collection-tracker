@@ -142,6 +142,65 @@ describe('cover garbage collection (COM-45)', () => {
     expect(storage.store.has(s3Ref(ids.oldOrphan, 'full').key)).toBe(true)
   })
 
+  it('restores as private when the asset\'s identity is claimed while it was deleted', async () => {
+    await db.collection('coverAssets').createIndex(
+      { identityKey: 1 },
+      { unique: true, partialFilterExpression: { identityKey: { $type: 'string' } } }
+    )
+    const storage = storageWithExtras()
+    const orphans = await findOrphans(db, { now: NOW, storage, s3Prefix: 'production' })
+    const identity = 'manual|the avengers|1|marvel||'
+    // A comic attaches the old asset during backup...
+    const backup = async (o) => {
+      if (o.id === String(ids.oldOrphan)) {
+        await db.collection('comics').insertOne({ userId: 'u', series: 'The Avengers', issueNumber: '1', coverAssetId: ids.oldOrphan })
+      }
+    }
+    // ...and an upload claims the same identity right after GC deletes the record
+    const racingDb = {
+      collection(name) {
+        const real = db.collection(name)
+        if (name !== 'coverAssets') return real
+        return new Proxy(real, {
+          get(target, prop) {
+            if (prop === 'deleteOne') {
+              return async (...args) => {
+                const out = await target.deleteOne(...args)
+                if (String(args[0]._id) === String(ids.oldOrphan)) {
+                  await target.insertOne({ identityKey: identity, createdAt: daysAgo(0) })
+                }
+                return out
+              }
+            }
+            const value = target[prop]
+            return typeof value === 'function' ? value.bind(target) : value
+          },
+        })
+      },
+    }
+
+    const result = await deleteOrphans(racingDb, { orphans, storage, confirm: true, backup })
+
+    expect(result.skipped.find((o) => o.id === String(ids.oldOrphan)).reason).toMatch(/restored as private/)
+    expect(await db.collection('coverAssets').findOne({ _id: ids.oldOrphan })).toMatchObject({ identityKey: null })
+    expect(storage.store.has(s3Ref(ids.oldOrphan, 'full').key)).toBe(true)
+    await db.collection('coverAssets').dropIndexes()
+  })
+
+  it('never treats images a comic points to as a stray, even without an asset record', async () => {
+    const danglingId = new ObjectId()
+    await db.collection('cover_images').insertOne({ comicId: String(danglingId), images: imagesFor(danglingId), createdAt: daysAgo(400) })
+    await db.collection('comics').insertOne({ userId: 'u', series: 'Rom', issueNumber: '1', coverAssetId: danglingId })
+    const storage = storageWithExtras()
+
+    const orphans = await findOrphans(db, { now: NOW, storage, s3Prefix: 'production' })
+    expect(orphans.dangling.map((d) => d.imagesKey)).toEqual([String(danglingId)])
+    expect(orphans.strays.some((s) => s.imagesKey === String(danglingId))).toBe(false)
+
+    await deleteOrphans(db, { orphans, storage, confirm: true })
+    expect(await db.collection('cover_images').findOne({ comicId: String(danglingId) })).toBeTruthy()
+  })
+
   it('skips orphans with S3 files when there is no S3 access, but still clears the rest', async () => {
     const orphans = await findOrphans(db, { now: NOW })
 

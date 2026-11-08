@@ -109,6 +109,11 @@ async function main() {
     }
     section('Cover assets no comic uses', orphans.orphanAssets)
     section('cover_images records with no asset', orphans.strays)
+    if (orphans.dangling.length) {
+      console.log(`## Comics pointing at images with no cover asset (repair needed; never deleted): ${orphans.dangling.length}`)
+      orphans.dangling.forEach((d) => console.log(`- cover_images ${d.id} (key ${d.imagesKey}), ${d.s3Keys.length} S3 file(s)`))
+      console.log()
+    }
     section(`S3 files no record mentions${includeS3Orphans ? '' : ' (reported only; add --include-s3-orphans to delete)'}`, orphans.s3Orphans)
 
     let backupDir = null
