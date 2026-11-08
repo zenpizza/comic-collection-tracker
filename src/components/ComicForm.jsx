@@ -279,7 +279,15 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
     setCreditsStatus('loading')
     try {
       const credits = await coverAPIService.fetchIssueCredits(comicVineId)
-      setFormData(prev => ({ ...prev, credits, ...creditsToFields(credits) }))
+      // The creator inputs are editable while this runs; keep anything typed
+      // and fill only the inputs still blank
+      const fetched = creditsToFields(credits)
+      setFormData(prev => ({
+        ...prev,
+        credits,
+        writers: prev.writers || fetched.writers,
+        artists: prev.artists || fetched.artists
+      }))
       setCreditsStatus(null)
     } catch (error) {
       console.error('Credits lookup failed:', error)

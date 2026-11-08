@@ -144,6 +144,29 @@ describe('ComicForm look-up-first flow (COM-55)', () => {
     expect(onAdd.mock.calls[0][0]).toMatchObject({ comicVineId: '2001', credits: null })
   })
 
+  it('keeps creators typed in the review step while the lookup was still running', async () => {
+    coverAPIService.searchCovers.mockResolvedValue([result('2001', 1988, 7)])
+    let resolve
+    coverAPIService.fetchIssueCredits.mockReturnValue(new Promise((r) => { resolve = r }))
+    const onAdd = vi.fn(async () => {})
+    render(<ComicForm onAdd={onAdd} />)
+
+    find('Black Panther', '1')
+    await screen.findByText('Looking up creators on ComicVine…')
+    fill('Writer(s)', 'Christopher Priest')
+    resolve(credits)
+
+    await waitFor(() => expect(screen.getByLabelText('Artist(s)').value).toBe('Denys Cowan, Sam de la Rosa'))
+    expect(screen.getByLabelText('Writer(s)').value).toBe('Christopher Priest')
+    fireEvent.click(screen.getByRole('button', { name: 'Add to collection' }))
+
+    await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1))
+    const saved = onAdd.mock.calls[0][0].credits
+    expect(saved.find((c) => c.name === 'Christopher Priest').roles).toEqual(['writer'])
+    expect(saved.find((c) => c.name === 'Peter B. Gillis')).toBeUndefined()
+    expect(saved.find((c) => c.name === 'Denys Cowan').roles).toEqual(['artist', 'penciler'])
+  })
+
   it('Change match goes back with the inputs from before the match', async () => {
     coverAPIService.searchCovers.mockResolvedValue([result('2001', 1988, 7)])
     render(<ComicForm onAdd={vi.fn()} />)
