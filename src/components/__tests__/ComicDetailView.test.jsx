@@ -110,6 +110,41 @@ describe('ComicDetailView creator credits (COM-55)', () => {
     expect(coverAPIService.fetchIssueCredits).toHaveBeenCalledTimes(1)
   })
 
+  it('discards a lookup whose ComicVine id changed before it finished', async () => {
+    let resolve
+    coverAPIService.fetchIssueCredits.mockReturnValue(new Promise((r) => { resolve = r }))
+    const onSave = vi.fn()
+    const props = { comics: [], onClose: () => {}, onSave, onDelete: () => {} }
+    const { rerender } = render(<ComicDetailView {...props} comic={{ ...base, comicVineId: '25171', credits: null }} />)
+
+    // The comic's ComicVine id is corrected while its lookup is in flight
+    rerender(<ComicDetailView {...props} comic={{ ...base, comicVineId: '99999', credits: null }} />)
+    resolve(credits)
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(onSave.mock.calls.some(([saved]) => saved.comicVineId === '99999' && saved.credits === credits)).toBe(false)
+  })
+
+  it('links creator names to their issues when the parent supports it (COM-59)', () => {
+    const onSelectCreator = vi.fn()
+    render(
+      <ComicDetailView
+        comic={{ ...base, comicVineId: '25171', credits }}
+        comics={[]}
+        onClose={() => {}}
+        onSave={vi.fn()}
+        onDelete={() => {}}
+        onSelectCreator={onSelectCreator}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jim Mooney' }))
+    expect(onSelectCreator).toHaveBeenCalledWith('Jim Mooney')
+    fireEvent.click(screen.getByRole('button', { name: 'George Roussos' }))
+    expect(onSelectCreator).toHaveBeenLastCalledWith('George Roussos')
+    expect(screen.getByText(/\(inks\)/)).toBeTruthy()
+  })
+
   it('does not fetch when credits were already looked up, or without a ComicVine id', () => {
     render(<Harness onSave={vi.fn()} initialComic={{ ...base, comicVineId: '25171', credits: [] }} />)
     cleanup()

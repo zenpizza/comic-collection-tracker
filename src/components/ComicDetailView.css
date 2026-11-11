@@ -466,3 +466,22 @@
   font-size: 0.8rem;
   color: var(--ink-muted);
 }
+
+/* Creator name linking to that creator's issues (COM-59) */
+.creator-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-primary);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-standard);
+}
+
+.creator-link:hover,
+.creator-link:focus-visible {
+  text-decoration-color: currentColor;
+}

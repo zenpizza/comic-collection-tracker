@@ -38,6 +38,18 @@ export function getSeriesSortKey(seriesName) {
 }
 
 /**
+ * Leading numeric part of an issue number ("12", "12.1", "12A" → 12), or
+ * null for non-numeric ones ("Annual 9").
+ */
+export function parseIssueNumber(issueNumber) {
+  if (issueNumber === null || issueNumber === undefined) return null
+  const match = String(issueNumber).trim().match(/^\d+(\.\d+)?/)
+  if (!match) return null
+  const parsed = Number(match[0])
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+/**
  * Compare two series names for library-style alphabetical sorting
  * @param {string} a - First series name
  * @param {string} b - Second series name
