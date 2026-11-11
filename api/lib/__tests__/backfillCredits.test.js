@@ -74,6 +74,21 @@ describe('fillMissingCredits (COM-59)', () => {
     expect(await creditsOf('Thor')).toEqual([{ name: 'Saved In App', roles: ['writer'] }])
   })
 
+  it('skips a comic whose ComicVine id changed while the lookup was running', async () => {
+    // Thor's id is corrected between our read and our write
+    const fetchImpl = vi.fn(async (url) => {
+      if (url.includes('4000-101')) {
+        await db.collection('comics').updateOne({ series: 'Thor' }, { $set: { comicVineId: '102' } })
+      }
+      return issueResponse(url)
+    })
+
+    const result = await fillMissingCredits(db, { apiKey: 'k', fetchImpl, ...noWait })
+
+    expect(result.skipped).toBe(1)
+    expect(await creditsOf('Thor')).toBeNull() // not the old issue's credits; retried next run
+  })
+
   it('records errors, leaves those comics empty, and retries them next run', async () => {
     await db.collection('comics').insertOne({ series: 'Broken', issueNumber: '1', comicVineId: '999', credits: null })
 

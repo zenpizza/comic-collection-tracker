@@ -10,8 +10,10 @@ import { normalizeCredits } from './comics.js'
  * One request per comic on ComicVine's per-issue endpoint, paced and stopped
  * at the first rate-limit response (createPacedFetch). Resumable without a
  * state file: each run only picks up comics whose credits are still empty.
- * Writes are conditional on credits still being empty, so credits saved by
- * hand — or by the app's fill-on-open — while this runs are never overwritten.
+ * Writes are conditional on credits still being empty and the comic still
+ * having the ComicVine id that was looked up, so credits saved meanwhile (by
+ * hand, or the app's fill-on-open) are never overwritten, and an id corrected
+ * meanwhile never gets the old issue's credits.
  */
 
 const MISSING_CREDITS = { credits: { $not: { $type: 'array' } } }
@@ -48,12 +50,12 @@ export async function fillMissingCredits(db, {
     try {
       const credits = normalizeCredits(await fetchIssueCredits({ issueId: comic.comicVineId, apiKey, fetchImpl: pacedFetch }))
       const write = await comics.updateOne(
-        { _id: comic._id, ...MISSING_CREDITS },
+        { _id: comic._id, comicVineId: comic.comicVineId, ...MISSING_CREDITS },
         { $set: { credits, updatedAt: new Date().toISOString() } }
       )
       if (write.modifiedCount === 0) {
-        result.skipped++ // credits were saved some other way meanwhile
-        onProgress({ ...label, status: 'skipped (credits already saved)' })
+        result.skipped++ // credits saved, or ComicVine id changed, meanwhile
+        onProgress({ ...label, status: 'skipped (comic changed meanwhile)' })
       } else if (credits.length === 0) {
         result.empty++
         onProgress({ ...label, status: 'no credits on ComicVine' })
