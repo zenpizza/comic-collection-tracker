@@ -1,0 +1,31 @@
+/* Creators mode, right-hand panel (COM-59). Header and cover cells reuse the
+   collection view's .ucv__* styles. */
+.creator-detail__group {
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.creator-detail__group:last-child {
+  border-bottom: none;
+}
+
+.creator-detail__series {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: var(--text-md, 1rem);
+  font-weight: 700;
+  color: var(--ink-primary);
+}
+
+.creator-detail__roles {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+.creator-detail__covers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

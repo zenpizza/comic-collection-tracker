@@ -180,6 +180,73 @@
   list-style: none;
 }
 
+/* Titles / Creators toggle and role filter (COM-59) */
+.ucv__mode-toggle {
+  display: flex;
+  gap: 4px;
+  margin: 10px 12px 0;
+  padding: 3px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  background: var(--bg-page);
+  flex-shrink: 0;
+}
+
+.ucv__mode-btn,
+.ucv__role-btn {
+  border: none;
+  background: none;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+
+.ucv__mode-btn {
+  flex: 1;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+}
+
+.ucv__mode-btn.is-active {
+  background: var(--bg-elevated);
+  color: var(--ink-primary);
+  box-shadow: var(--shadow-1);
+}
+
+.ucv__role-filter {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ucv__role-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+}
+
+.ucv__role-btn.is-active {
+  background: var(--status-success-bg);
+  border-color: var(--accent-primary);
+  color: var(--status-success-ink);
+}
+
+.ucv__mode-btn:focus-visible,
+.ucv__role-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Titles-mode search hit through a creator: "• Walt Simonson" */
+.ucv__series-hint {
+  font-size: 11px;
+  color: var(--accent-primary);
+}
+
 /* ── Right panel ── */
 .ucv__panel-right {
   flex: 1;

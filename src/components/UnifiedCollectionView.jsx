@@ -1,8 +1,10 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react'
 import CoverImage from './CoverImage'
 import ComicDetailView from './ComicDetailView'
-import { compareSeriesNames } from '../utils/sortUtils'
+import CreatorDetail from './CreatorDetail'
+import { compareSeriesNames, parseIssueNumber } from '../utils/sortUtils'
 import { useFillViewportHeight } from '../utils/useFillViewportHeight'
+import { buildCreatorIndex, filterCreators, normalizeCreatorKey, seriesMatchingCreator } from '../utils/creators'
 import './UnifiedCollectionView.css'
 
 const DRAG_THRESHOLD_PX = 6
@@ -10,14 +12,6 @@ const DRAG_THRESHOLD_PX = 6
 // Space to leave below the two panels: .app-shell's bottom margin plus the
 // view panel's border.
 const BODY_BOTTOM_GAP_PX = 30
-
-const parseIssueNumber = (issueNumber) => {
-  if (issueNumber === null || issueNumber === undefined) return null
-  const match = String(issueNumber).trim().match(/^\d+(\.\d+)?/)
-  if (!match) return null
-  const parsed = Number(match[0])
-  return Number.isNaN(parsed) ? null : parsed
-}
 
 const buildSeriesData = (comics) => {
   const seriesMap = new Map()
@@ -88,6 +82,10 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedComic, setSelectedComic] = useState(null)
+  // Browse by title or by creator (COM-59); the search box is shared
+  const [browseMode, setBrowseMode] = useState('titles')
+  const [selectedCreator, setSelectedCreator] = useState(null) // normalized key
+  const [roleFilter, setRoleFilter] = useState('all')
   const dragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0, moved: false })
   const scrollerRef = useRef(null)
   const bodyRef = useRef(null)
@@ -115,11 +113,25 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
     }
   }, [comics, selectedComic])
 
-  // A newly picked title opens at the top of the issues panel, not wherever
-  // the previous one was scrolled to.
+  const creatorIndex = useMemo(() => buildCreatorIndex(comics), [comics])
+  const filteredCreators = useMemo(
+    () => filterCreators(creatorIndex, { role: roleFilter, search: searchTerm }),
+    [creatorIndex, roleFilter, searchTerm]
+  )
+  const activeCreator = creatorIndex.find((c) => c.key === selectedCreator) ?? null
+
+  // Select the first creator on entering Creators mode
+  useEffect(() => {
+    if (browseMode === 'creators' && selectedCreator === null && filteredCreators.length > 0) {
+      setSelectedCreator(filteredCreators[0].key)
+    }
+  }, [browseMode, selectedCreator, filteredCreators])
+
+  // A newly picked title or creator opens at the top of the right panel, not
+  // wherever the previous one was scrolled to.
   useEffect(() => {
     if (panelRightRef.current) panelRightRef.current.scrollTop = 0
-  }, [selectedSeries])
+  }, [selectedSeries, selectedCreator, browseMode])
 
   // Keep the selected title visible in the list — on first load, and when a
   // search is cleared and the full list comes back. Scrolls only the list,
@@ -133,13 +145,21 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
     const listRect = list.getBoundingClientRect()
     if (rowRect.top < listRect.top) list.scrollTop -= listRect.top - rowRect.top
     else if (rowRect.bottom > listRect.bottom) list.scrollTop += rowRect.bottom - listRect.bottom
-  }, [searchTerm, selectedSeries])
+  }, [searchTerm, selectedSeries, selectedCreator, browseMode])
 
+  // Titles-mode search (COM-56) matches series names and the creators of
+  // their comics; creator-only matches show who matched
+  const creatorMatches = useMemo(() => seriesMatchingCreator(comics, searchTerm), [comics, searchTerm])
   const filteredSeries = useMemo(() => {
     if (!searchTerm) return seriesData
     const lower = searchTerm.toLowerCase()
-    return seriesData.filter((s) => s.seriesName.toLowerCase().includes(lower))
-  }, [seriesData, searchTerm])
+    return seriesData
+      .filter((s) => s.seriesName.toLowerCase().includes(lower) || creatorMatches.has(s.seriesName))
+      .map((s) => ({
+        ...s,
+        matchedCreator: s.seriesName.toLowerCase().includes(lower) ? null : creatorMatches.get(s.seriesName),
+      }))
+  }, [seriesData, searchTerm, creatorMatches])
 
   const activeSeries = seriesData.find((s) => s.seriesName === selectedSeries) ?? null
 
@@ -213,6 +233,23 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
     setDrawerOpen(false)
   }
 
+  const handleSelectCreator = (key) => {
+    setSelectedCreator(key)
+    setDrawerOpen(false)
+  }
+
+  // From a creator's name in the comic detail view: show that creator
+  const handleBrowseCreator = (name) => {
+    setBrowseMode('creators')
+    setRoleFilter('all')
+    setSearchTerm('')
+    setSelectedCreator(normalizeCreatorKey(name))
+    setSelectedComic(null)
+  }
+
+  const creatorCount = (creator) =>
+    roleFilter === 'writers' ? creator.writerCount : roleFilter === 'artists' ? creator.artistCount : creator.comicCount
+
   return (
     <div className="ucv">
       {/* Stats + mobile "All Titles" trigger */}
@@ -233,9 +270,9 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
           type="button"
           className="ucv__all-titles-btn"
           onClick={() => setDrawerOpen(true)}
-          aria-label="Browse all titles"
+          aria-label="Browse titles and creators"
         >
-          ☰ All Titles
+          ☰ Browse
         </button>
       </div>
 
@@ -256,10 +293,10 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
         {/* Left panel / mobile drawer */}
         <aside
           className={`ucv__panel-left ${drawerOpen ? 'is-open' : ''}`}
-          aria-label="Series list"
+          aria-label={browseMode === 'creators' ? 'Creator list' : 'Series list'}
         >
           <div className="ucv__drawer-header">
-            <span>All Titles</span>
+            <span>Browse</span>
             <button
               type="button"
               className="ucv__drawer-close"
@@ -269,16 +306,67 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
               ✕
             </button>
           </div>
+          <div className="ucv__mode-toggle" role="group" aria-label="Browse by">
+            {[['titles', 'Titles'], ['creators', 'Creators']].map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                className={`ucv__mode-btn ${browseMode === mode ? 'is-active' : ''}`}
+                aria-pressed={browseMode === mode}
+                onClick={() => setBrowseMode(mode)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="ucv__search-wrap">
             <input
               className="ucv__search"
               type="text"
-              placeholder="Search titles…"
+              placeholder={browseMode === 'creators' ? 'Search creators…' : 'Search titles or creators…'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Search titles"
+              aria-label={browseMode === 'creators' ? 'Search creators' : 'Search titles or creators'}
             />
+            {browseMode === 'creators' && (
+              <div className="ucv__role-filter" role="group" aria-label="Role">
+                {[['all', 'All'], ['writers', 'Writers'], ['artists', 'Artists']].map(([role, label]) => (
+                  <button
+                    key={role}
+                    type="button"
+                    className={`ucv__role-btn ${roleFilter === role ? 'is-active' : ''}`}
+                    aria-pressed={roleFilter === role}
+                    onClick={() => setRoleFilter(role)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+          {browseMode === 'creators' ? (
+            <ul className="ucv__series-list" role="listbox" aria-label="Creators" ref={listRef}>
+              {filteredCreators.map((creator) => (
+                <li
+                  key={creator.key}
+                  role="option"
+                  aria-selected={creator.key === selectedCreator}
+                  className={`ucv__series-row ${creator.key === selectedCreator ? 'is-active' : ''}`}
+                  onClick={() => handleSelectCreator(creator.key)}
+                >
+                  <span className="ucv__series-name">{creator.name}</span>
+                  <span className="ucv__series-sub">
+                    {creatorCount(creator)} issue{creatorCount(creator) !== 1 ? 's' : ''} · {creator.roleSummary.join(' · ')}
+                  </span>
+                </li>
+              ))}
+              {creatorIndex.length === 0 ? (
+                <li className="ucv__series-empty">No creator credits yet. They're filled in as you open comics.</li>
+              ) : filteredCreators.length === 0 && (
+                <li className="ucv__series-empty">No creators match{searchTerm ? <> &ldquo;{searchTerm}&rdquo;</> : ''}</li>
+              )}
+            </ul>
+          ) : (
           <ul className="ucv__series-list" role="listbox" aria-label="Series" ref={listRef}>
             {filteredSeries.map((s) => (
               <li
@@ -289,6 +377,7 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
                 onClick={() => handleSelectSeries(s.seriesName)}
               >
                 <span className="ucv__series-name">{s.seriesName}</span>
+                {s.matchedCreator && <span className="ucv__series-hint">• {s.matchedCreator}</span>}
                 <span className="ucv__series-sub">
                   {s.ownedCount} issue{s.ownedCount !== 1 ? 's' : ''}
                   {s.missingCount > 0 ? (
@@ -302,9 +391,10 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
               </li>
             ))}
             {filteredSeries.length === 0 && (
-              <li className="ucv__series-empty">No titles match &ldquo;{searchTerm}&rdquo;</li>
+              <li className="ucv__series-empty">No titles or creators match &ldquo;{searchTerm}&rdquo;</li>
             )}
           </ul>
+          )}
         </aside>
 
         {/* Right panel: series detail */}
@@ -313,6 +403,16 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
             <div className="ucv__empty">
               Add comics to your collection to get started.
             </div>
+          ) : browseMode === 'creators' ? (
+            activeCreator ? (
+              <CreatorDetail creator={activeCreator} onOpenComic={setSelectedComic} />
+            ) : (
+              <div className="ucv__empty">
+                {creatorIndex.length === 0
+                  ? 'No creator credits yet. Open a comic to fill in its writers and artists.'
+                  : 'Select a creator to see their issues.'}
+              </div>
+            )
           ) : !activeSeries ? (
             <div className="ucv__empty">Select a title to browse its issues.</div>
           ) : (
@@ -439,6 +539,7 @@ function UnifiedCollectionView({ comics, onRemove, onEdit }) {
             setSelectedComic(updatedComic)
           }}
           onDelete={onRemove}
+          onSelectCreator={handleBrowseCreator}
         />
       )}
     </div>

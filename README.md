@@ -86,6 +86,8 @@ See [Deployment Architecture](docs/DEPLOYMENT_ARCHITECTURE.md) for details.
 
 **Creator credits**: Comics store their full ComicVine credits (writer, pencils, inks, colors, letters, editor, cover). Writers and artists show in the comic's details, the rest in a smaller line, and writers and artists can be edited there. Existing comics with a ComicVine ID fetch their credits the first time you open them.
 
+**Browse and search by creator**: On My Collection, switch the list from **Titles** to **Creators** to see every writer and artist in your collection with issue counts (filter by All, Writers or Artists). Pick one to see their issues grouped by series, with their role on each run. Creator names in a comic's details link straight there. The title search also finds series by creator — typing "Simonson" lists the series he worked on, marked with his name. To fill in credits for comics you haven't opened yet, run `node scripts/backfill-credits.js run --env <env file>`.
+
 **Bulk Import**: Use the "Bulk Import" tab for multiple comics:
 - **Text Import**: Paste a list of comics in these formats:
   - `Amazing Spider-Man #1`

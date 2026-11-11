@@ -6,7 +6,7 @@
 
 // Roles shown together as "Artists", with the detail shown next to the name
 const ARTIST_ROLE_DETAIL = { artist: null, penciler: 'pencils', inker: 'inks' }
-const ARTIST_ROLES = Object.keys(ARTIST_ROLE_DETAIL)
+export const ARTIST_ROLES = Object.keys(ARTIST_ROLE_DETAIL)
 
 // Everything else, in display order; unknown roles follow, alphabetically
 const OTHER_ROLE_LABELS = { cover: 'Cover', colorist: 'Colors', letterer: 'Letters', editor: 'Editor' }

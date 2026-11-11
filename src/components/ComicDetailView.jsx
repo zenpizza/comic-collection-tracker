@@ -24,7 +24,7 @@ const editFormFromComic = (comic) => ({
   ...creditsToFields(comic.credits)
 })
 
-function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
+function ComicDetailView({ comic, comics, onClose, onSave, onDelete, onSelectCreator }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState(() => editFormFromComic(comic))
   const [showSeriesDropdown, setShowSeriesDropdown] = useState(false)
@@ -64,6 +64,8 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
         if (!mounted.current) return
         const current = latestComic.current
         if (current.id !== comic.id) return
+        // A ComicVine id changed meanwhile: these credits are for another issue
+        if (current.comicVineId !== comic.comicVineId) return
         // Creators saved by hand while the lookup was running win
         if (current.credits !== null && current.credits !== undefined) return
         // Save onto the latest version, so an edit saved meanwhile isn't undone.
@@ -389,6 +391,17 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
   const checkingCover = false
 
   const creditGroups = groupCredits(comic.credits)
+  // Creator names link to that creator's issues when the parent supports it
+  // (COM-59); otherwise they're plain text
+  const linkedNames = (names) => {
+    if (!onSelectCreator) return names.join(', ')
+    return names.map((name, i) => (
+      <React.Fragment key={name}>
+        {i > 0 && ', '}
+        <button type="button" className="creator-link" onClick={() => onSelectCreator(name)}>{name}</button>
+      </React.Fragment>
+    ))
+  }
 
   return (
     <div className="comic-detail-overlay" onClick={onClose}>
@@ -649,7 +662,7 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                   {creditGroups.writers.length > 0 && (
                     <div className="detail-item">
                       <span className="detail-label">{creditGroups.writers.length > 1 ? 'Writers:' : 'Writer:'}</span>
-                      <span className="detail-value">{creditGroups.writers.join(', ')}</span>
+                      <span className="detail-value">{linkedNames(creditGroups.writers)}</span>
                     </div>
                   )}
 
@@ -657,14 +670,28 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete }) {
                     <div className="detail-item">
                       <span className="detail-label">{creditGroups.artists.length > 1 ? 'Artists:' : 'Artist:'}</span>
                       <span className="detail-value">
-                        {creditGroups.artists.map(({ name, detail }) => (detail ? `${name} (${detail})` : name)).join(', ')}
+                        {onSelectCreator
+                          ? creditGroups.artists.map(({ name, detail }, i) => (
+                            <React.Fragment key={name}>
+                              {i > 0 && ', '}
+                              {linkedNames([name])}{detail ? ` (${detail})` : ''}
+                            </React.Fragment>
+                          ))
+                          : creditGroups.artists.map(({ name, detail }) => (detail ? `${name} (${detail})` : name)).join(', ')}
                       </span>
                     </div>
                   )}
 
                   {creditGroups.other.length > 0 && (
                     <p className="detail-credits-other">
-                      Also: {creditGroups.other.map(({ label, names }) => `${label} ${names.join(', ')}`).join(' · ')}
+                      Also: {onSelectCreator
+                        ? creditGroups.other.map(({ label, names }, i) => (
+                          <React.Fragment key={label}>
+                            {i > 0 && ' · '}
+                            {label} {linkedNames(names)}
+                          </React.Fragment>
+                        ))
+                        : creditGroups.other.map(({ label, names }) => `${label} ${names.join(', ')}`).join(' · ')}
                     </p>
                   )}
 
