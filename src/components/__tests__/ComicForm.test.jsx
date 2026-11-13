@@ -167,6 +167,24 @@ describe('ComicForm look-up-first flow (COM-55)', () => {
     expect(saved.find((c) => c.name === 'Denys Cowan').roles).toEqual(['artist', 'penciler'])
   })
 
+  it('a search handed over from Price Check fills in and runs Find once (COM-61)', async () => {
+    coverAPIService.searchCovers.mockResolvedValue([result('2001', 1988, 7)])
+    render(<ComicForm onAdd={vi.fn()} initialQuery={{ series: 'Black Panther', issueNumber: '1', year: '1988', publisher: 'Marvel' }} />)
+
+    expect(await screen.findByDisplayValue('Peter B. Gillis')).toBeTruthy()
+    expect(coverAPIService.searchCovers).toHaveBeenCalledTimes(1)
+    expect(coverAPIService.searchCovers).toHaveBeenCalledWith('Black Panther', '1', 'Marvel', '1988')
+  })
+
+  it('the review step links to eBay sold listings for the match (COM-61)', async () => {
+    coverAPIService.searchCovers.mockResolvedValue([result('2001', 1988, 7)])
+    render(<ComicForm onAdd={vi.fn()} />)
+
+    find('Black Panther', '1')
+    const link = await screen.findByRole('link', { name: /Check eBay sold prices/ })
+    expect(new URL(link.getAttribute('href')).searchParams.get('_nkw')).toBe('Black Panther 1 1988 comic')
+  })
+
   it('Change match goes back with the inputs from before the match', async () => {
     coverAPIService.searchCovers.mockResolvedValue([result('2001', 1988, 7)])
     render(<ComicForm onAdd={vi.fn()} />)

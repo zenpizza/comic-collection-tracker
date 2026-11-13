@@ -10,6 +10,7 @@ import coverAPIService from '../utils/coverAPIService'
 import { apiFetch } from '../utils/apiClient'
 import { applyCoverMetadataToForm } from '../utils/coverFormFill'
 import { applyCreditFields, creditsToFields, groupCredits } from '../utils/credits'
+import { ebaySoldUrl } from '../utils/priceLinks'
 import { MONTH_NAMES } from '../utils/months'
 import './ComicForm.css'
 
@@ -36,7 +37,7 @@ const EMPTY_FORM = {
  *   review — the match's details pre-filled (incl. creators) for checking
  *   manual — the full form, for comics ComicVine doesn't have
  */
-function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existingComics = [] }) {
+function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existingComics = [], initialQuery = null }) {
   const [step, setStep] = useState('find')
   const [showRefine, setShowRefine] = useState(false)
   const [formData, setFormData] = useState(EMPTY_FORM)
@@ -60,6 +61,27 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Stable for the lifetime of one form entry; regenerated after each submit
   const [uploaderComicId, setUploaderComicId] = useState(() => `form_${Date.now()}`)
+
+  // A search handed over from Price Check: fill it in, then run Find once the
+  // filled-in fields have been applied
+  const [pendingFind, setPendingFind] = useState(false)
+  useEffect(() => {
+    if (!initialQuery) return
+    setFormData(prev => ({
+      ...prev,
+      series: initialQuery.series || '',
+      issueNumber: initialQuery.issueNumber || '',
+      year: initialQuery.year || '',
+      publisher: initialQuery.publisher || ''
+    }))
+    setShowRefine(Boolean(initialQuery.year || initialQuery.publisher))
+    setPendingFind(true)
+  }, [initialQuery])
+  useEffect(() => {
+    if (!pendingFind) return
+    setPendingFind(false)
+    handleFind()
+  }, [pendingFind])
 
   // Check for duplicates when series or issue number changes
   useEffect(() => {
@@ -775,6 +797,14 @@ function ComicForm({ onAdd, existingSeries = [], existingPublishers = [], existi
                   </span>
                 )}
                 {libraryMatch && <span className="match-meta">Cover already in the library</span>}
+                <a
+                  className="link-button"
+                  href={ebaySoldUrl({ series: formData.series, volumeName: formData.volumeName, issueNumber: formData.issueNumber, year: formData.year })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Check eBay sold prices <span aria-hidden="true">↗</span>
+                </a>
                 <button type="button" className="link-button" onClick={handleChangeMatch} disabled={busy}>
                   Change match
                 </button>

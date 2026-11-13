@@ -485,3 +485,11 @@
 .creator-link:focus-visible {
   text-decoration-color: currentColor;
 }
+
+/* eBay sold-listings link styled as a button (COM-61) */
+.price-link {
+  display: block;
+  margin-top: 16px;
+  text-align: center;
+  text-decoration: none;
+}

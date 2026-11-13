@@ -1,0 +1,155 @@
+/* Price Check (COM-61). Inputs, buttons and the match card come from
+   ComicForm.css (.comic-form); these are the parts unique to this screen. */
+
+.price-check .submit-btn {
+  margin-top: 8px;
+}
+
+/* The eBay link is an <a> styled as the primary button */
+.price-check .ebay-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.price-check__hint {
+  margin: 8px 0 16px;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+
+.price-check__add {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--ink-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.price-check__add:hover {
+  background: var(--bg-page);
+}
+
+.price-check__owned {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-page);
+  border: 1px solid var(--border-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-secondary);
+}
+
+.price-check__owned.is-owned {
+  background: var(--status-success-bg);
+  border-color: transparent;
+  color: var(--status-success-ink);
+}
+
+.price-check__card-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.price-check__card-actions .link-button {
+  margin: 2px 0 0;
+}
+
+.price-check__no-match {
+  margin-top: 14px;
+  font-size: 0.9rem;
+  color: var(--ink-secondary);
+}
+
+.price-check__no-match p {
+  margin: 0 0 6px;
+}
+
+.price-check__fallback-link {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.price-check__matches {
+  margin-top: 16px;
+}
+
+.price-check__matches-label {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+}
+
+.price-check__matches ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.price-check__matches li + li {
+  border-top: 1px solid var(--border-soft);
+}
+
+.price-check__match-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: none;
+  background: var(--bg-elevated);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.price-check__match-row:hover,
+.price-check__match-row:focus-visible {
+  background: var(--bg-page);
+}
+
+.price-check__match-row img,
+.price-check__no-thumb {
+  width: 40px;
+  height: 60px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--bg-page);
+}
+
+.price-check__no-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.price-check__match-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.price-check__match-text strong {
+  color: var(--ink-primary);
+  font-size: 0.9rem;
+}
+
+.price-check__match-text span {
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
