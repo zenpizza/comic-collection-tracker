@@ -48,7 +48,7 @@ describe('PriceCheck (COM-61)', () => {
 
   it('lists several matches, and picking one shows it with its ownership', async () => {
     coverAPIService.searchCovers.mockResolvedValue([result('2001', 'Black Panther', 1988), result('2002', 'Black Panther', 1998)])
-    render(<PriceCheck comics={owned} />)
+    render(<PriceCheck comics={owned} onAddToCollection={vi.fn()} />)
 
     search('Black Panther', '1')
     fireEvent.click(await screen.findByRole('button', { name: /Black Panther #1\s*1998/ }))
@@ -60,6 +60,9 @@ describe('PriceCheck (COM-61)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Change match' }))
     expect(screen.getByText('2 matches. Pick yours:')).toBeTruthy()
+    // The unowned 1988 #1 does offer Add
+    fireEvent.click(screen.getByRole('button', { name: /Black Panther #1\s*1988/ }))
+    expect(screen.getByRole('button', { name: 'Add to collection' })).toBeTruthy()
   })
 
   it('falls back to series and issue for owned comics without a ComicVine id', async () => {
