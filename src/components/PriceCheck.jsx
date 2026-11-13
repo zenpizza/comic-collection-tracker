@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import coverAPIService from '../utils/coverAPIService'
 import { parseIssueForSearch } from '../utils/issueParser'
 import { ebaySoldUrl, findOwnedCopies } from '../utils/priceLinks'
@@ -20,6 +20,20 @@ function PriceCheck({ comics = [], existingSeries = [], onAddToCollection }) {
   const [match, setMatch] = useState(null)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState(null)
+  // The query the current results belong to. Result actions (ownership, eBay
+  // links, Add to collection) use this, never the live inputs, which may
+  // have been edited since.
+  const [searchedQuery, setSearchedQuery] = useState(null)
+  // Bumped on each search and each edit, so a response for an older query is ignored
+  const requestId = useRef(0)
+
+  const clearResults = () => {
+    requestId.current++
+    setResults(null)
+    setMatch(null)
+    setSearchedQuery(null)
+    setSearching(false)
+  }
 
   const seriesSuggestions = query.series
     ? existingSeries.filter((s) => s.toLowerCase().includes(query.series.toLowerCase())).slice(0, 8)
@@ -29,6 +43,8 @@ function PriceCheck({ comics = [], existingSeries = [], onAddToCollection }) {
     const { name, value } = e.target
     setQuery((prev) => ({ ...prev, [name]: value }))
     if (name === 'series') setShowSeriesDropdown(value.length > 0)
+    // Results (or a pending search) for the old query no longer apply
+    if (results || searching) clearResults()
   }
 
   const handleFind = async (e) => {
@@ -37,40 +53,46 @@ function PriceCheck({ comics = [], existingSeries = [], onAddToCollection }) {
       setError('Enter the series and issue number first')
       return
     }
+    const id = ++requestId.current
+    const submitted = { ...query }
     setSearching(true)
     setError(null)
     setMatch(null)
     try {
-      const { series, issue } = parseIssueForSearch(query.series, query.issueNumber)
-      const found = await coverAPIService.searchCovers(series, issue, query.publisher, query.year)
+      const { series, issue } = parseIssueForSearch(submitted.series, submitted.issueNumber)
+      const found = await coverAPIService.searchCovers(series, issue, submitted.publisher, submitted.year)
+      if (id !== requestId.current) return
+      setSearchedQuery(submitted)
       setResults(found)
       if (found.length === 1) setMatch(found[0])
     } catch (err) {
+      if (id !== requestId.current) return
       console.error('Price check search failed:', err)
+      setSearchedQuery(submitted)
       setResults([])
       setError('ComicVine search isn\'t available right now. You can still search eBay with what you typed.')
     } finally {
-      setSearching(false)
+      if (id === requestId.current) setSearching(false)
     }
   }
 
   const handleNewSearch = () => {
+    clearResults()
     setQuery(EMPTY_QUERY)
-    setResults(null)
-    setMatch(null)
     setError(null)
     setShowRefine(false)
   }
 
-  const typedFields = { series: query.series, issueNumber: query.issueNumber, year: query.year }
+  const searched = searchedQuery || query
+  const typedFields = { series: searched.series, issueNumber: searched.issueNumber, year: searched.year }
   const matchFields = match && {
-    series: query.series,
+    series: searched.series,
     volumeName: match.metadata?.volumeName,
-    issueNumber: match.metadata?.issueNumber || query.issueNumber,
+    issueNumber: match.metadata?.issueNumber || searched.issueNumber,
     year: match.metadata?.year,
   }
   const owned = match
-    ? findOwnedCopies(comics, { comicVineId: match.id, series: query.series, issueNumber: query.issueNumber })
+    ? findOwnedCopies(comics, { comicVineId: match.id, series: searched.series, issueNumber: searched.issueNumber })
     : []
 
   const ebayLink = (fields, label, className = 'submit-btn ebay-link') => (
@@ -179,7 +201,7 @@ function PriceCheck({ comics = [], existingSeries = [], onAddToCollection }) {
                         ? <img src={r.thumbnailUrl} alt="" loading="lazy" />
                         : <span className="price-check__no-thumb" aria-hidden="true">📚</span>}
                       <span className="price-check__match-text">
-                        <strong>{r.metadata?.volumeName || query.series} #{r.metadata?.issueNumber || query.issueNumber}</strong>
+                        <strong>{r.metadata?.volumeName || searched.series} #{r.metadata?.issueNumber || searched.issueNumber}</strong>
                         <span>{[r.metadata?.year, r.metadata?.publisher].filter(Boolean).join(' · ')}</span>
                       </span>
                     </button>
@@ -195,10 +217,10 @@ function PriceCheck({ comics = [], existingSeries = [], onAddToCollection }) {
         <div className="price-check__result">
           <div className="match-card">
             {match.thumbnailUrl || match.imageUrl
-              ? <img className="match-cover" src={match.thumbnailUrl || match.imageUrl} alt={`${matchFields.volumeName || query.series} #${matchFields.issueNumber} cover`} />
+              ? <img className="match-cover" src={match.thumbnailUrl || match.imageUrl} alt={`${matchFields.volumeName || searched.series} #${matchFields.issueNumber} cover`} />
               : <div className="match-cover match-cover--placeholder" aria-hidden="true">📚</div>}
             <div className="match-details">
-              <strong className="match-title">{matchFields.volumeName || query.series} #{matchFields.issueNumber}</strong>
+              <strong className="match-title">{matchFields.volumeName || searched.series} #{matchFields.issueNumber}</strong>
               <span className="match-meta">{[match.metadata?.year, match.metadata?.publisher].filter(Boolean).join(' · ')}</span>
               <span className={`price-check__owned ${owned.length ? 'is-owned' : ''}`}>
                 {owned.length
@@ -224,10 +246,10 @@ function PriceCheck({ comics = [], existingSeries = [], onAddToCollection }) {
               type="button"
               className="price-check__add"
               onClick={() => onAddToCollection({
-                series: query.series,
-                issueNumber: query.issueNumber,
-                year: match.metadata?.year ? String(match.metadata.year) : query.year,
-                publisher: match.metadata?.publisher || query.publisher,
+                series: searched.series,
+                issueNumber: searched.issueNumber,
+                year: match.metadata?.year ? String(match.metadata.year) : searched.year,
+                publisher: match.metadata?.publisher || searched.publisher,
               })}
             >
               {owned.length ? 'Add another copy to collection' : 'Add to collection'}

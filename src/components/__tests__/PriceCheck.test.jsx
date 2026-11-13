@@ -104,6 +104,39 @@ describe('PriceCheck (COM-61)', () => {
     expect(screen.queryByRole('link', { name: /Check eBay sold prices/ })).toBeNull()
   })
 
+  it('ignores a search response that arrives after the inputs were edited', async () => {
+    let resolve
+    coverAPIService.searchCovers.mockReturnValue(new Promise((r) => { resolve = r }))
+    const onAddToCollection = vi.fn()
+    render(<PriceCheck comics={owned} onAddToCollection={onAddToCollection} />)
+
+    search('Thor', '337')
+    fireEvent.change(screen.getByLabelText('Issue Number'), { target: { value: '338' } })
+    resolve([result('101', 'Thor', 1983, '337')])
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(screen.queryByRole('link', { name: /Check eBay sold prices/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add to collection' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Find on ComicVine' }).disabled).toBe(false)
+  })
+
+  it('clears a match list when the inputs change, and acts on the query that was searched', async () => {
+    coverAPIService.searchCovers.mockResolvedValue([result('2001', 'Black Panther', 1988), result('2002', 'Black Panther', 1998)])
+    const onAddToCollection = vi.fn()
+    render(<PriceCheck comics={owned} onAddToCollection={onAddToCollection} />)
+
+    search('Black Panther', '1')
+    await screen.findByText('2 matches. Pick yours:')
+    fireEvent.change(screen.getByLabelText('Issue Number'), { target: { value: '2' } })
+    expect(screen.queryByText('2 matches. Pick yours:')).toBeNull()
+
+    fireEvent.change(screen.getByLabelText('Issue Number'), { target: { value: '1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Find on ComicVine' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Black Panther #1\s*1988/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add to collection' }))
+    expect(onAddToCollection).toHaveBeenCalledWith({ series: 'Black Panther', issueNumber: '1', year: '1988', publisher: 'Marvel' })
+  })
+
   it('asks for series and issue before searching', () => {
     render(<PriceCheck comics={owned} />)
     fireEvent.click(screen.getByRole('button', { name: 'Find on ComicVine' }))
