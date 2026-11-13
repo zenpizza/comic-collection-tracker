@@ -7,6 +7,7 @@ import coverAPIService from '../utils/coverAPIService'
 import { getSortedUniqueSeriesNames } from '../utils/sortUtils'
 import { MONTH_NAMES, monthName } from '../utils/months'
 import { applyCreditFields, creditsToFields, groupCredits } from '../utils/credits'
+import { ebaySoldUrl } from '../utils/priceLinks'
 import './ComicDetailView.css'
 
 // Edit form values for a comic. Rebuilt whenever editing starts so fields
@@ -723,6 +724,15 @@ function ComicDetailView({ comic, comics, onClose, onSave, onDelete, onSelectCre
                     </div>
                   )}
                 </div>
+
+                <a
+                  className="btn btn-secondary price-link"
+                  href={ebaySoldUrl({ series: comic.series, volumeName: comic.volumeName, issueNumber: comic.issueNumber, year: comic.year })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Check eBay sold prices <span aria-hidden="true">↗</span>
+                </a>
 
                 <div className="action-buttons">
                   <button className="btn btn-primary" onClick={handleStartEdit}>

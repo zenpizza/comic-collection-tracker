@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth, useUser, UserButton, SignIn, Show } from '@clerk/react'
 import ComicForm from './components/ComicForm'
+import PriceCheck from './components/PriceCheck'
 import BulkImport from './components/BulkImport'
 import UnifiedCollectionView from './components/UnifiedCollectionView'
 import DataManager from './components/DataManager'
@@ -48,9 +49,11 @@ class AppErrorBoundary extends React.Component {
 }
 
 function App() {
-  const tabOrder = ['collection', 'add', 'bulk', 'data']
+  const tabOrder = ['collection', 'add', 'price', 'bulk', 'data']
   const [comics, setComics] = useState([])
   const [activeTab, setActiveTab] = useState('collection')
+  // Search handed from Price Check to Add Comic; cleared once Add Comic is left
+  const [addComicQuery, setAddComicQuery] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState('saved') // 'saving', 'saved', 'error'
   const [showBulkCoverManager, setShowBulkCoverManager] = useState(false)
@@ -335,6 +338,10 @@ function App() {
     setRecentlyImportedCount(0)
   }
 
+  useEffect(() => {
+    if (activeTab !== 'add') setAddComicQuery(null)
+  }, [activeTab])
+
   const handleTabKeyDown = (event, currentTab) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
       return
@@ -407,6 +414,17 @@ function App() {
               Add Comic
             </button>
             <button
+              id="tab-price"
+              role="tab"
+              aria-selected={activeTab === 'price'}
+              aria-controls="panel-price"
+              className={`segmented-tabs__button ${activeTab === 'price' ? 'active is-active' : ''}`}
+              onClick={() => setActiveTab('price')}
+              onKeyDown={(event) => handleTabKeyDown(event, 'price')}
+            >
+              Price Check
+            </button>
+            <button
               id="tab-bulk"
               role="tab"
               aria-selected={activeTab === 'bulk'}
@@ -444,6 +462,17 @@ function App() {
                 existingSeries={getSortedUniqueSeriesNames(comics)}
                 existingPublishers={[...new Set(comics.map(comic => comic.publisher).filter(Boolean))]}
                 existingComics={comics}
+                initialQuery={addComicQuery}
+              />
+            )}
+            {activeTab === 'price' && (
+              <PriceCheck
+                comics={comics}
+                existingSeries={getSortedUniqueSeriesNames(comics)}
+                onAddToCollection={(query) => {
+                  setAddComicQuery(query)
+                  setActiveTab('add')
+                }}
               />
             )}
             {activeTab === 'bulk' && (

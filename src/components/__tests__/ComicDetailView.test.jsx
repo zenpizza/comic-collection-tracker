@@ -145,6 +145,14 @@ describe('ComicDetailView creator credits (COM-55)', () => {
     expect(screen.getByText(/\(inks\)/)).toBeTruthy()
   })
 
+  it('links to eBay sold listings using the ComicVine volume name and year (COM-61)', () => {
+    render(<Harness onSave={vi.fn()} initialComic={{ ...base, series: 'X-Men', issueNumber: 'Annual 9', volumeName: 'X-Men Annual', year: 1985, credits: [] }} />)
+
+    const link = screen.getByRole('link', { name: /Check eBay sold prices/ })
+    expect(new URL(link.getAttribute('href')).searchParams.get('_nkw')).toBe('X-Men Annual 9 1985 comic')
+    expect(link.getAttribute('target')).toBe('_blank')
+  })
+
   it('does not fetch when credits were already looked up, or without a ComicVine id', () => {
     render(<Harness onSave={vi.fn()} initialComic={{ ...base, comicVineId: '25171', credits: [] }} />)
     cleanup()

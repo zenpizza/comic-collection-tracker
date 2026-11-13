@@ -2,7 +2,7 @@
 
 **Goal:** while browsing at a shop or a street vendor, look up any issue and see what it typically sells for, so you can judge whether an asking price is a good deal.
 
-**Status:** research, November 2026. Prices, plans and API terms below were checked against each source's own pages where possible. Items marked *unverified* come from third-party or forum sources.
+**Status:** research, November 2026. **Phase 1 shipped** (COM-61): a Price Check tab, plus "Check eBay sold prices" links in the comic detail view and on Add Comic's review step. Prices, plans and API terms below were checked against each source's own pages where possible. Items marked *unverified* come from third-party or forum sources.
 
 ## TL;DR
 
