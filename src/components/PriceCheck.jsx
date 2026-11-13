@@ -241,7 +241,9 @@ function PriceCheck({ comics = [], existingSeries = [], onAddToCollection }) {
             Opens eBay's sold listings. Compare a few recent sales in similar condition to the copy in front of you.
           </p>
 
-          {onAddToCollection && (
+          {/* The collection holds one copy of an issue (unique identity per
+              account), so adding an owned issue would only fail as a duplicate */}
+          {onAddToCollection && owned.length === 0 && (
             <button
               type="button"
               className="price-check__add"
@@ -252,7 +254,7 @@ function PriceCheck({ comics = [], existingSeries = [], onAddToCollection }) {
                 publisher: match.metadata?.publisher || searched.publisher,
               })}
             >
-              {owned.length ? 'Add another copy to collection' : 'Add to collection'}
+              Add to collection
             </button>
           )}
         </div>

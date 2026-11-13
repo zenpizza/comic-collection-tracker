@@ -55,6 +55,8 @@ describe('PriceCheck (COM-61)', () => {
 
     expect(screen.getByText('✓ In your collection')).toBeTruthy()
     expect(ebayQuery(ebayLink())).toBe('Black Panther 1 1998 comic')
+    // Already owned: no add (duplicate copies aren't supported)
+    expect(screen.queryByRole('button', { name: /Add/ })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Change match' }))
     expect(screen.getByText('2 matches. Pick yours:')).toBeTruthy()
