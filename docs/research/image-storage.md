@@ -12,14 +12,16 @@
   - No new vendor, account or keys to manage, and it can be set up per environment for production and previews.
   - The cost is a moderate code change: `@vercel/blob` is its own API, not S3.
 - **Runner-up: Cloudflare R2.** It's **S3-compatible**, so the code barely changes (a new endpoint and keys). It has 10 GB free and **no egress fees**. It needs a Cloudflare account.
-- **Oracle Cloud is not recommended** despite its generous storage (20 GB, 10 TB egress). The **50,000 requests/month** cap is the problem: every cover a browser hasn't cached is a storage request, because the app proxies images and the CDN doesn't cache them. Signup is also harder, and Oracle has cut free-tier limits without notice before.
+- **Oracle Cloud is not recommended** despite its generous storage (20 GB, 10 TB egress). The **50,000 requests/month** cap is the problem: today CloudFront absorbs most image fetches, and dropping it would send every proxy fetch straight to Oracle unless a cache is added in front. Signup is also harder, and Oracle has cut free-tier limits without notice before.
 - **First, check the AWS bill.** At 85 MB, S3 storage should cost cents. The bill is more likely driven by CloudFront, requests, or something unrelated. Also, the **Vercel Pro plan** is probably a bigger monthly cost than this storage, which matters if cost is the goal.
 
 ## How the app uses image storage today
 
 - Uploads go through `api/images/upload.js` → `api/s3-client.js` (AWS SDK v3). Each cover is stored as three sizes at `<prefix>/covers/<assetId>/{thumbnail,medium,full}.jpg`, where the prefix is `production` or `preview`.
-- **Images are proxied:** `api/images/[comicId].js` fetches each image from its **stored full CloudFront URL** (`cover_images.images.<size>.url`) and streams it to the browser. The response carries `Cache-Control: public, max-age=86400`, so browsers cache it for a day. With no `s-maxage`, Vercel's CDN doesn't cache it, so each browser cache miss is a storage request.
-- **CloudFront adds little:** browsers never fetch from it directly. Its invalidation code (`invalidateCache`) can go away.
+- **Images are proxied:** `api/images/[comicId].js` fetches each image from its **stored full CloudFront URL** (`cover_images.images.<size>.url`) and streams it to the browser. The response carries `Cache-Control: public, max-age=86400`, so browsers cache it for a day. With no `s-maxage`, Vercel's CDN doesn't cache it, so every browser cache miss runs the function.
+- **CloudFront is the cache in front of S3:** browsers never contact CloudFront, but **the proxy's server-side fetch does**. Objects are uploaded with `Cache-Control: public, max-age=2592000` (30 days), so CloudFront serves repeat fetches from its cache, and **S3 GETs happen only on CloudFront misses** ([AWS: content expiration](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Expiration.html)). The request chain is: browser miss → Vercel function → CloudFront (usually a hit) → S3 (only on a miss).
+- **Dropping CloudFront moves that load:** without a replacement cache, every proxy fetch becomes a storage request. When comparing options, count **storage requests per proxy fetch**, and look for a cache layer. Vercel Blob serves public blobs through Vercel's CDN, where cache hits don't count as Blob operations. R2 S3-API reads are uncached but very cheap (10M Class B free). Oracle has no cache in front unless one is added.
+- **For the AWS baseline,** look at CloudFront requests and data transfer separately from S3 GET requests in Cost Explorer. They're billed differently, and CloudFront has its own free tier.
 - **Other users of S3:** the cover cleanup tool (`api/lib/coverGarbageCollection.js`) and some one-off scripts.
 
 ## Options compared
@@ -37,7 +39,7 @@
 
 ## Why not Oracle, despite the free storage
 
-The storage and egress allowances are generous. But this app's access pattern doesn't fit a **50,000 requests/month** cap. Covers are proxied through `api/images/[comicId].js` without CDN caching, so a browser that hasn't cached a cover triggers a storage GET. Opening the collection on a new device, or after clearing the cache, can easily mean hundreds of requests. That's manageable for one person, but it's a hard limit to keep watching, unlike the other options. Add the harder signup, keys tied to one home region, and recent unannounced cuts to free-tier limits, and the risk outweighs the benefit.
+The storage and egress allowances are generous. But this app's access pattern doesn't fit a **50,000 requests/month** cap. Covers are proxied through `api/images/[comicId].js`. Today CloudFront answers most of those fetches from its cache, but Oracle would have nothing in front of it unless a cache were added, so every browser cache miss would become an Oracle request. Opening the collection on a new device, or after clearing the cache, can easily mean hundreds of requests. That's manageable for one person, but it's a hard limit to keep watching, unlike the other options. Add the harder signup, keys tied to one home region, and recent unannounced cuts to free-tier limits, and the risk outweighs the benefit.
 
 ## Recommendation and migration outline
 
@@ -51,7 +53,7 @@ Whichever option is chosen, the first refactor is the same and worth doing anywa
    - **R2:** the existing S3 client with an `endpoint` option.
 3. **Copy objects:** about 1,100 files for production plus preview. Check counts, and checksums or sizes.
 4. **Separate environments:** a Blob store (or R2 bucket) per environment, or keep the `production/` and `preview/` prefixes.
-5. **Cut over:** env vars in Vercel, deploy, then confirm covers load and uploads and the cleanup tool work. Then delete the S3 bucket and CloudFront distribution and revoke the IAM keys.
+5. **Cut over:** env vars in Vercel, deploy, then confirm covers load and uploads and the cleanup tool work. Then delete the S3 bucket and CloudFront distribution and revoke the IAM keys. Removing CloudFront also removes the cache in front of storage, so the new path needs its own caching (Blob through Vercel's CDN, or an `s-maxage` on the proxy response) or must tolerate a storage request per fetch.
 6. **Optional:** with **public** Blob URLs, browsers could load covers straight from Vercel's CDN, skipping the proxy function. That's faster and cheaper, but means rethinking `api/images/[comicId].js`. Cover art isn't sensitive.
 
 ## Decisions needed
